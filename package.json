@@ -1,0 +1,16 @@
+{
+  "name": "sia",
+  "private": true,
+  "version": "1.0.0",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @sia/validation build && pnpm --filter @sia/shared build && pnpm --parallel --filter @sia/api --filter @sia/web dev",
+    "build": "pnpm -r build",
+    "test": "pnpm --filter @sia/validation build && pnpm --filter @sia/shared build && pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint"
+  }
+}

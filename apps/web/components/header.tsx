@@ -1,0 +1,61 @@
+"use client";
+
+import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { useAuth } from "./auth-provider";
+import { ButtonLink } from "./button";
+import { Logo } from "./logo";
+
+export function Header() {
+  const { session, loading, signOut } = useAuth();
+  const [open, setOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const close = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  return (
+    <header className="site-header">
+      <div className="header-inner">
+        <Logo />
+        <nav className="header-nav" aria-label="Primary navigation">
+          {!loading && session ? (
+            <>
+              <Link className="nav-link" href="/profile">My profile</Link>
+              <div className="account-menu" ref={menuRef}>
+                <button
+                  className="account-trigger"
+                  aria-expanded={open}
+                  aria-haspopup="menu"
+                  onClick={() => setOpen((value) => !value)}
+                >
+                  <span className="avatar"><UserRound size={17} /></span>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </button>
+                {open && (
+                  <div className="dropdown" role="menu">
+                    <span className="dropdown-email">{session.user.email}</span>
+                    <button role="menuitem" onClick={() => void signOut()}>
+                      <LogOut size={16} /> Log out
+                    </button>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <Link className="nav-link" href="/login">Log in</Link>
+              <ButtonLink href="/create" className="header-cta">Create profile</ButtonLink>
+            </>
+          )}
+        </nav>
+      </div>
+    </header>
+  );
+}
