@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, LogIn, LogOut, Plus, UserRound } from "lucide-react";
+import { ChevronDown, LogIn, LogOut, MapPin, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
@@ -25,6 +25,7 @@ export function Header() {
       <div className="header-inner">
         <Logo />
         <nav className="header-nav" aria-label="Primary navigation">
+          <Link className="nav-link nav-link-icon nearby-nav-link" href="/nearby"><MapPin size={17} /><span>Nearby</span></Link>
           {!loading && session ? (
             <>
               <Link className="nav-link nav-link-icon" href="/profile"><UserRound size={17} /><span>Profile</span></Link>

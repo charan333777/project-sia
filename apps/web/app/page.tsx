@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowRight, MessageCircleHeart, QrCode, UserRound } from "lucide-react";
+import { ArrowDown, ArrowRight, EyeOff, MapPin, MessageCircleHeart, QrCode, Radar, UserRound } from "lucide-react";
 import { ButtonLink } from "@/components/button";
 import { Footer } from "@/components/footer";
 
@@ -30,6 +30,27 @@ export default function HomePage() {
               <div className="mini-chips"><span>Creative ideas</span><span>Coffee</span><span>A quick chat</span></div>
             </article>
             <div className="scan-note">Say hello 👋</div>
+          </div>
+        </section>
+
+        <section className="nearby-teaser-section" aria-labelledby="nearby-teaser-heading">
+          <div className="nearby-teaser-inner">
+            <div className="nearby-teaser-copy">
+              <span className="eyebrow">Nearby</span>
+              <h2 id="nearby-teaser-heading">See who’s open.</h2>
+              <p>Only when they choose.</p>
+              <ButtonLink href="/nearby">Explore <ArrowRight size={18} /></ButtonLink>
+              <span className="nearby-teaser-privacy"><EyeOff size={15} /> Hidden first</span>
+            </div>
+            <div className="nearby-teaser-visual" aria-label="Preview of three people nearby">
+              <span className="teaser-radius teaser-radius-large" />
+              <span className="teaser-radius teaser-radius-small" />
+              <span className="teaser-person teaser-person-one">M</span>
+              <span className="teaser-person teaser-person-two">L</span>
+              <span className="teaser-person teaser-person-three">N</span>
+              <span className="teaser-you"><MapPin size={19} /><small>You</small></span>
+              <span className="teaser-count"><Radar size={16} /> 3 here now</span>
+            </div>
           </div>
         </section>
 
