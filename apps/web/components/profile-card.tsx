@@ -1,13 +1,21 @@
 import { Heart, MessageCircleMore, Sparkles } from "lucide-react";
 import type { Profile, ProfileInput } from "@sia/validation";
+import { getProfileCharacterOption } from "./profile-characters";
+import { getProfileTheme } from "./profile-themes";
 
 type DisplayProfile = Profile | ProfileInput;
 
 export function ProfileCard({ profile, compact = false }: { profile: DisplayProfile; compact?: boolean }) {
+  const theme = getProfileTheme(profile.profile_theme);
+  const character = getProfileCharacterOption(profile.profile_character);
   return (
-    <article className={`profile-card ${compact ? "profile-card-compact" : ""}`}>
+    <article className={`profile-card profile-theme-${theme} ${compact ? "profile-card-compact" : ""}`}>
       <div className="profile-identity">
-        <div className="profile-avatar" aria-hidden="true"><span>{profile.display_name.slice(0, 1).toUpperCase()}</span></div>
+        <div className={`profile-avatar ${character.imageSrc ? "profile-character-avatar" : ""}`} aria-hidden="true">
+          <span>{character.imageSrc
+            ? <img src={character.imageSrc} alt="" width="72" height="72" draggable={false} />
+            : profile.display_name.slice(0, 1).toUpperCase()}</span>
+        </div>
         <div>
           <h1>{profile.display_name}</h1>
           {profile.role && <p className="profile-role">{profile.role}</p>}

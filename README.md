@@ -88,6 +88,6 @@ docker run --env-file .env -p 4000:4000 sia-api
 
 ## V1 limitations
 
-Sia V1 intentionally contains no discovery, locations, messaging, feed, friends, followers, notifications, payments, AI, profile themes, QR customization or admin dashboard. Profiles are public by default and one authenticated user can own one profile.
+Sia V1 intentionally contains no discovery, locations, messaging, feed, friends, followers, notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with a colour theme and character, profiles are private by default, and one authenticated user can own one profile.
 
 See [local development](docs/development/local-development.md), [system architecture](docs/architecture/system.md), and the [API reference](docs/api/v1.md) for implementation details.

@@ -8,6 +8,8 @@ import {
   Globe2,
   LockKeyhole,
   MessageCircleMore,
+  Palette,
+  PawPrint,
   Sparkles,
   UserRound,
 } from "lucide-react";
@@ -16,6 +18,10 @@ import { profileInputSchema, type ProfileInput } from "@sia/validation";
 import { Button } from "./button";
 import { TextAreaField, TextField } from "./field";
 import { ProfileCard } from "./profile-card";
+import { ProfileCharacterPicker } from "./profile-character-picker";
+import { getProfileCharacter, getProfileCharacterOption } from "./profile-characters";
+import { ProfileThemePicker } from "./profile-theme-picker";
+import { getProfileTheme, profileThemeOptions } from "./profile-themes";
 import { TagPicker } from "./tag-picker";
 
 export const emptyProfile: ProfileInput = {
@@ -27,6 +33,8 @@ export const emptyProfile: ProfileInput = {
   interests: [],
   open_to: [],
   is_public: false,
+  profile_theme: "calm",
+  profile_character: "plain",
 };
 
 const interestSuggestions = ["AI", "Startups", "DevOps", "Photography", "Music", "Football", "Travel", "Design"];
@@ -36,6 +44,7 @@ const steps = [
   { label: "You", icon: UserRound },
   { label: "Now", icon: Sparkles },
   { label: "Connect", icon: MessageCircleMore },
+  { label: "Style", icon: PawPrint },
   { label: "Visibility", icon: Globe2 },
 ];
 
@@ -136,6 +145,21 @@ function VisibilityChoice({ value, set, onChoose, chosen = true }: Pick<FormFiel
   );
 }
 
+function StyleFields({ value, set }: Pick<FormFieldsProps, "value" | "set">) {
+  return (
+    <div className="profile-style-fields">
+      <section className="profile-style-section" aria-labelledby="character-style-heading">
+        <div className="profile-style-heading"><strong id="character-style-heading">Choose your character</strong><small>The personality people notice first.</small></div>
+        <ProfileCharacterPicker value={getProfileCharacter(value.profile_character)} onChange={(character) => set("profile_character", character)} />
+      </section>
+      <section className="profile-style-section" aria-labelledby="colour-style-heading">
+        <div className="profile-style-heading"><strong id="colour-style-heading">Choose your colour mood</strong><small>Mix any mood with any character.</small></div>
+        <ProfileThemePicker value={getProfileTheme(value.profile_theme)} onChange={(theme) => set("profile_theme", theme)} />
+      </section>
+    </div>
+  );
+}
+
 export function ProfileForm({
   initialValue = emptyProfile,
   submitLabel,
@@ -227,7 +251,8 @@ export function ProfileForm({
               <TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} />
             </div>
           )}
-          {step === 3 && (
+          {step === 3 && <StyleFields value={value} set={set} />}
+          {step === 4 && (
             <>
               <p className="visibility-lede">Who can open your profile?</p>
               <VisibilityChoice value={value} set={set} chosen={visibilityChosen} onChoose={() => { setVisibilityChosen(true); setErrors({}); }} />
@@ -289,6 +314,10 @@ export function EditProfileForm({
       <details className="edit-details">
         <summary><span><MessageCircleMore size={18} /> Connect</span><ChevronDown size={18} /></summary>
         <div className="edit-details-body connect-fields"><TagPicker label="I’m into" helper="Pick a few." suggestions={interestSuggestions} value={value.interests} onChange={(nextValue) => set("interests", nextValue)} /><TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} /></div>
+      </details>
+      <details className="edit-details">
+        <summary><span><Palette size={18} /> Style</span><span className="visibility-summary">{getProfileCharacterOption(value.profile_character).label} · {profileThemeOptions.find((theme) => theme.id === getProfileTheme(value.profile_theme))?.label}</span><ChevronDown size={18} /></summary>
+        <div className="edit-details-body"><StyleFields value={value} set={set} /></div>
       </details>
       <details className="edit-details">
         <summary><span><Globe2 size={18} /> Visibility</span><span className="visibility-summary">{value.is_public ? "Public" : "Private"}</span><ChevronDown size={18} /></summary>

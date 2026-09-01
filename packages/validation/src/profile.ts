@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const profileThemes = ["calm", "warm", "bold", "play"] as const;
+export type ProfileTheme = (typeof profileThemes)[number];
+
+export const profileCharacters = ["plain", "puppy", "elephant", "panda", "play"] as const;
+export type ProfileCharacter = (typeof profileCharacters)[number];
+
 export const reservedUsernames = new Set([
   "api",
   "create",
@@ -52,6 +58,8 @@ export const profileInputSchema = z.object({
   interests: tagsSchema("Interests").default([]),
   open_to: tagsSchema("Open-to values").default([]),
   is_public: z.boolean().default(false),
+  profile_theme: z.enum(profileThemes).default("calm"),
+  profile_character: z.enum(profileCharacters).default("plain"),
 });
 
 export const profileUpdateSchema = profileInputSchema.partial();

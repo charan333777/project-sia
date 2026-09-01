@@ -51,6 +51,8 @@ const input = {
   interests: ["AI", "Startups"],
   open_to: ["A quick chat", "Coffee"],
   is_public: true,
+  profile_theme: "calm" as const,
+  profile_character: "elephant" as const,
 };
 
 describe("profile API", () => {
@@ -79,6 +81,12 @@ describe("profile API", () => {
 
     const edited = await app.inject({ method: "PATCH", url: "/api/v1/profiles/me", headers, payload: { current_context: "Having coffee" } });
     expect(edited.json().data.current_context).toBe("Having coffee");
+
+    const themed = await app.inject({ method: "PATCH", url: "/api/v1/profiles/me", headers, payload: { profile_theme: "warm" } });
+    expect(themed.json().data.profile_theme).toBe("warm");
+
+    const characterised = await app.inject({ method: "PATCH", url: "/api/v1/profiles/me", headers, payload: { profile_character: "panda" } });
+    expect(characterised.json().data.profile_character).toBe("panda");
   });
 
   it("serves public profiles without authentication", async () => {

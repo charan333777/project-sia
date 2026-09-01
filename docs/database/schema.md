@@ -1,6 +1,6 @@
 # Database schema
 
-The versioned migration is `supabase/migrations/202608290001_create_profiles.sql`.
+The versioned schema is maintained in `supabase/migrations/`.
 
 ## `profiles`
 
@@ -15,10 +15,12 @@ The versioned migration is `supabase/migrations/202608290001_create_profiles.sql
 | `current_context` | varchar(160) | Highly visible current activity/context |
 | `interests` | text[] | Up to 10 tags |
 | `open_to` | text[] | Up to 10 interaction signals |
-| `is_public` | boolean | Defaults to true |
+| `is_public` | boolean | Defaults to false |
+| `profile_theme` | text | One of `calm`, `warm`, `bold`, or `play` |
+| `profile_character` | text | One of `plain`, `puppy`, `elephant`, `panda`, or `play`; defaults to `plain` |
 | `created_at` | timestamptz | Creation time |
 | `updated_at` | timestamptz | Last API update time |
 
-The database includes unique indexes for owner and case-insensitive username integrity plus a partial public-username index. Check constraints provide defense in depth for username format and array size. PostgreSQL queries are parameterized through the `postgres` client.
+The database includes unique indexes for owner and case-insensitive username integrity plus a partial public-username index. Check constraints provide defense in depth for username format, array size, theme, and character choices. PostgreSQL queries are parameterized through the `postgres` client.
 
 RLS is enabled. V1 deliberately creates no browser-facing policies because all profile persistence and retrieval flows through the Fastify API. The API service credential must remain server-only.

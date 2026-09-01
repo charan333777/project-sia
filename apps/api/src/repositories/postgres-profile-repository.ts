@@ -27,10 +27,10 @@ export class PostgresProfileRepository implements ProfileRepository {
   async create(userId: string, input: ProfileInput): Promise<Profile> {
     const [row] = await this.sql<ProfileRow[]>`
       INSERT INTO profiles (
-        user_id, username, display_name, role, bio, current_context, interests, open_to, is_public
+        user_id, username, display_name, role, bio, current_context, interests, open_to, is_public, profile_theme, profile_character
       ) VALUES (
         ${userId}, ${input.username}, ${input.display_name}, ${input.role}, ${input.bio},
-        ${input.current_context}, ${this.sql.array(input.interests)}, ${this.sql.array(input.open_to)}, ${input.is_public}
+        ${input.current_context}, ${this.sql.array(input.interests)}, ${this.sql.array(input.open_to)}, ${input.is_public}, ${input.profile_theme}, ${input.profile_character}
       )
       RETURNING *
     `;
@@ -61,6 +61,8 @@ export class PostgresProfileRepository implements ProfileRepository {
         interests = ${this.sql.array(input.interests)},
         open_to = ${this.sql.array(input.open_to)},
         is_public = ${input.is_public},
+        profile_theme = ${input.profile_theme},
+        profile_character = ${input.profile_character},
         updated_at = now()
       WHERE user_id = ${userId}
       RETURNING *
