@@ -8,19 +8,19 @@ const sans = DM_Sans({ subsets: ["latin"], variable: "--font-sans" });
 const serif = Fraunces({ subsets: ["latin"], variable: "--font-serif" });
 
 export const metadata: Metadata = {
-  title: { default: "Sia — Make the first hello easier", template: "%s · Sia" },
-  description: "A lightweight profile that helps people around you know who you are, what you’re doing, and what you’re open to.",
+  title: { default: "Sia — Make hello easier", template: "%s · Sia" },
+  description: "A small profile for real-life moments.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   openGraph: {
-    title: "Sia — Make the first hello easier",
-    description: "Real people, shared interests, better first conversations.",
+    title: "Sia — Make hello easier",
+    description: "A small profile for real-life moments.",
     type: "website",
   },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${sans.variable} ${serif.variable}`}>
+    <html lang="en" className={`${sans.variable} ${serif.variable}`} data-scroll-behavior="smooth">
       <body>
         <AuthProvider>
           <Header />

@@ -38,5 +38,5 @@ export const api = {
   updateProfile: (input: ProfileUpdate, token: string) =>
     request<Profile>("/profiles/me", { method: "PATCH", body: JSON.stringify(input) }, token),
   getPublicProfile: (username: string) =>
-    request<Profile>(`/public/profiles/${encodeURIComponent(username)}`, { next: { revalidate: 30 } } as RequestInit),
+    request<Profile>(`/public/profiles/${encodeURIComponent(username)}`, { cache: "no-store" }),
 };

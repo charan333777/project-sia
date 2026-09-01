@@ -49,9 +49,9 @@ export function TagPicker({
           onKeyDown={(event) => {
             if (event.key === "Enter") { event.preventDefault(); add(); }
           }}
-          placeholder="Add your own"
+          placeholder="Something else"
         />
-        <button type="button" className="small-add" onClick={add}>Add</button>
+        <button type="button" className="small-add" aria-label={`Add custom ${label.toLowerCase()}`} onClick={add}><Plus size={17} /></button>
       </div>
       {value.some((tag) => !suggestions.includes(tag)) && (
         <div className="custom-tags">
@@ -60,7 +60,7 @@ export function TagPicker({
           ))}
         </div>
       )}
-      <span className="tag-count">{value.length}/10 selected</span>
+      <span className="tag-count">{value.length} / 10</span>
     </fieldset>
   );
 }

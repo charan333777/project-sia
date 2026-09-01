@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { ArrowRight, Sparkles } from "lucide-react";
 import { ButtonLink } from "@/components/button";
 import { ProfileCard } from "@/components/profile-card";
 import { api, ApiRequestError } from "@/lib/api";
@@ -23,8 +24,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     return {
       title: profile.display_name,
       description: description || `Meet ${profile.display_name} on Sia.`,
-      openGraph: { title: `${profile.display_name} on Sia`, description: description || `See what ${profile.display_name} is interested in and open to.`, images: [] },
-      twitter: { card: "summary", title: `${profile.display_name} on Sia`, description: description || `Meet ${profile.display_name} on Sia.`, images: [] },
+      openGraph: { title: `${profile.display_name} on Sia`, description: description || `See what ${profile.display_name} is interested in and open to.`, images: ["/opengraph-image"] },
+      twitter: { card: "summary_large_image", title: `${profile.display_name} on Sia`, description: description || `Meet ${profile.display_name} on Sia.`, images: ["/opengraph-image"] },
     };
   } catch {
     return { title: "Profile" };
@@ -36,12 +37,11 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const profile = await loadProfile(username);
   return (
     <main className="public-shell">
-      <p className="public-top-note">You’ve found {profile.display_name} on Sia.</p>
+      <p className="public-top-note">Meet {profile.display_name} <span aria-hidden="true">👋</span></p>
       <ProfileCard profile={profile} />
       <section className="viral-card">
-        <h2>Want your own Sia?</h2>
-        <p>Create a profile that helps people around you know who you are and what you’re open to.</p>
-        <div className="viral-actions"><ButtonLink href="/create">Create your profile</ButtonLink><ButtonLink href="/login" variant="secondary">Log in</ButtonLink></div>
+        <span><Sparkles size={17} /> Make hello easier</span>
+        <ButtonLink href="/create" variant="quiet">Create mine <ArrowRight size={17} /></ButtonLink>
       </section>
     </main>
   );

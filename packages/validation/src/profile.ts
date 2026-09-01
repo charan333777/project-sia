@@ -51,7 +51,7 @@ export const profileInputSchema = z.object({
   current_context: optionalText(160, "Current context"),
   interests: tagsSchema("Interests").default([]),
   open_to: tagsSchema("Open-to values").default([]),
-  is_public: z.boolean().default(true),
+  is_public: z.boolean().default(false),
 });
 
 export const profileUpdateSchema = profileInputSchema.partial();

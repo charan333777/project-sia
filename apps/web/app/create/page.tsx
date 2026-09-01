@@ -38,9 +38,9 @@ export default function CreatePage() {
 
   return (
     <main className="page-shell">
-      <div className="narrow-shell">
-        <div className="page-intro"><span className="eyebrow">Your Sia</span><h1>Tell people a little about you.</h1><p>Keep it natural. Think of what you’d want a friendly stranger to know before saying hello.</p></div>
-        <ProfileForm submitLabel="Create my Sia" submitting={submitting} serverError={error} onSubmit={submit} />
+      <div className="builder-shell">
+        <div className="page-intro"><span className="eyebrow">Your Sia</span><h1>Let’s make it yours.</h1></div>
+        <ProfileForm submitLabel="Create my Sia ✨" submitting={submitting} serverError={error} onSubmit={submit} />
       </div>
     </main>
   );

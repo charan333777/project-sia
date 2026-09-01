@@ -4,7 +4,7 @@ import type { ProfileInput } from "@sia/validation";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { LoadingState } from "@/components/loading-state";
-import { ProfileForm } from "@/components/profile-form";
+import { EditProfileForm } from "@/components/profile-form";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
 import { api } from "@/lib/api";
 
@@ -30,8 +30,8 @@ export default function EditProfilePage() {
   return (
     <main className="page-shell">
       <div className="narrow-shell">
-        <div className="page-intro"><span className="eyebrow">Keep it current</span><h1>Edit your Sia.</h1><p>A small update to what you’re doing now can make the next conversation easier.</p></div>
-        <ProfileForm initialValue={profile} submitLabel="Save changes" submitting={submitting} serverError={serverError} onSubmit={submit} />
+        <div className="page-intro"><span className="eyebrow">Keep it current</span><h1>Edit your Sia.</h1></div>
+        <EditProfileForm initialValue={profile} submitting={submitting} serverError={serverError} onSubmit={submit} />
       </div>
     </main>
   );

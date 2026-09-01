@@ -19,5 +19,6 @@ describe("profile validation", () => {
       open_to: [],
     });
     expect(profile.interests).toEqual(["AI"]);
+    expect(profile.is_public).toBe(false);
   });
 });

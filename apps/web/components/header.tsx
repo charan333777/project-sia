@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, LogOut, UserRound } from "lucide-react";
+import { ChevronDown, LogIn, LogOut, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
@@ -27,10 +27,11 @@ export function Header() {
         <nav className="header-nav" aria-label="Primary navigation">
           {!loading && session ? (
             <>
-              <Link className="nav-link" href="/profile">My profile</Link>
+              <Link className="nav-link nav-link-icon" href="/profile"><UserRound size={17} /><span>Profile</span></Link>
               <div className="account-menu" ref={menuRef}>
                 <button
                   className="account-trigger"
+                  aria-label="Account menu"
                   aria-expanded={open}
                   aria-haspopup="menu"
                   onClick={() => setOpen((value) => !value)}
@@ -50,8 +51,8 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link className="nav-link" href="/login">Log in</Link>
-              <ButtonLink href="/create" className="header-cta">Create profile</ButtonLink>
+              <Link className="nav-link nav-link-icon" href="/login"><LogIn size={17} /><span>Log in</span></Link>
+              <ButtonLink href="/create" className="header-cta"><Plus size={18} /><span>Create</span></ButtonLink>
             </>
           )}
         </nav>
