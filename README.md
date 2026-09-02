@@ -2,7 +2,7 @@
 
 Sia makes the first moment between two strangers easier. A user creates a lightweight, current profile, shares its QR code, and another person can understand who they are and what they are open to in a few seconds.
 
-This repository contains the complete V1 product loop: create before registration, Supabase email/password authentication, secure profile persistence through a Fastify API, public profiles, owner editing, and generated QR codes.
+This repository contains the complete V1 product loop: create before registration, Supabase email/password authentication, secure profile persistence through a Fastify API, public profiles, owner editing, generated QR codes, and privacy-first Nearby meeting coordination.
 
 ## Repository
 
@@ -86,8 +86,14 @@ docker build -f apps/api/Dockerfile -t sia-api .
 docker run --env-file .env -p 4000:4000 sia-api
 ```
 
+## Nearby
+
+Nearby is opt-in and hidden by default. The browser sends precise coordinates only to the authenticated API; PostGIS performs a 200 m search and the API returns distance bands plus a quantized direction, never raw coordinates. A Wave uses a preset intention, requires mutual acceptance, and opens a temporary Meet Card with public-place/time suggestions and preset coordination updates. Presence, Waves, connections, and meeting data expire automatically.
+
+PostGIS is installed by the committed Nearby migration. Deployed web origins must use HTTPS for browser geolocation; `localhost` is accepted by browsers during development.
+
 ## V1 limitations
 
-Sia V1 intentionally contains no discovery, locations, messaging, feed, friends, followers, notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with a colour theme and character, profiles are private by default, and one authenticated user can own one profile.
+Sia V1 has no map tiles, exact public pins, permanent inbox, feed, friends, followers, push notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with a colour theme and character, profiles are private by default, and one authenticated user can own one profile.
 
 See [local development](docs/development/local-development.md), [system architecture](docs/architecture/system.md), and the [API reference](docs/api/v1.md) for implementation details.

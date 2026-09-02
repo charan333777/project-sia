@@ -24,3 +24,14 @@ The versioned schema is maintained in `supabase/migrations/`.
 The database includes unique indexes for owner and case-insensitive username integrity plus a partial public-username index. Check constraints provide defense in depth for username format, array size, theme, and character choices. PostgreSQL queries are parameterized through the `postgres` client.
 
 RLS is enabled. V1 deliberately creates no browser-facing policies because all profile persistence and retrieval flows through the Fastify API. The API service credential must remain server-only.
+
+## Nearby tables
+
+- `nearby_presence` stores an authenticated user's PostGIS geography point, accuracy, selected duration, and expiry. A GiST index powers the 200 m search.
+- `nearby_signals` stores expiring preset-intention Waves.
+- `nearby_connections` stores mutual, two-hour connections using one normalized row per user pair.
+- `nearby_meet_plans` and `nearby_meet_statuses` store temporary time/place proposals and preset coordination updates.
+- `nearby_blocks` permanently excludes a user pair from discovery and interaction.
+- `nearby_reports` retains moderation evidence separately from temporary social data.
+
+RLS is enabled on every Nearby table with no browser policies. Expired location and coordination rows are opportunistically deleted by the API; blocking and reports are retained for safety.

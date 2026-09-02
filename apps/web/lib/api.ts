@@ -1,5 +1,18 @@
 import type { ApiError, ApiSuccess } from "@sia/shared";
-import type { Profile, ProfileInput, ProfileUpdate } from "@sia/validation";
+import type {
+  NearbyDuration,
+  NearbyIntent,
+  NearbyMeetAction,
+  NearbyMeetPlanInput,
+  NearbyMeetStatusCode,
+  NearbyPresenceInput,
+  NearbyReportInput,
+  NearbySignalAction,
+  NearbySnapshot,
+  Profile,
+  ProfileInput,
+  ProfileUpdate,
+} from "@sia/validation";
 
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
 
@@ -39,4 +52,22 @@ export const api = {
     request<Profile>("/profiles/me", { method: "PATCH", body: JSON.stringify(input) }, token),
   getPublicProfile: (username: string) =>
     request<Profile>(`/public/profiles/${encodeURIComponent(username)}`, { cache: "no-store" }),
+  getNearby: (token: string) => request<NearbySnapshot>("/nearby", { cache: "no-store" }, token),
+  updateNearbyPresence: (input: NearbyPresenceInput, token: string) =>
+    request<NearbySnapshot>("/nearby/presence", { method: "PUT", body: JSON.stringify(input) }, token),
+  hideNearby: (token: string) => request<NearbySnapshot>("/nearby/presence", { method: "DELETE" }, token),
+  sendNearbySignal: (targetProfileId: string, intent: NearbyIntent, token: string) =>
+    request<NearbySnapshot>("/nearby/signals", { method: "POST", body: JSON.stringify({ target_profile_id: targetProfileId, intent }) }, token),
+  respondNearbySignal: (signalId: string, action: NearbySignalAction, token: string) =>
+    request<NearbySnapshot>(`/nearby/signals/${signalId}`, { method: "PATCH", body: JSON.stringify({ action }) }, token),
+  proposeNearbyMeet: (connectionId: string, input: NearbyMeetPlanInput, token: string) =>
+    request<NearbySnapshot>(`/nearby/connections/${connectionId}/meet-plans`, { method: "POST", body: JSON.stringify(input) }, token),
+  respondNearbyMeet: (meetPlanId: string, action: NearbyMeetAction, token: string) =>
+    request<NearbySnapshot>(`/nearby/meet-plans/${meetPlanId}`, { method: "PATCH", body: JSON.stringify({ action }) }, token),
+  sendNearbyMeetStatus: (meetPlanId: string, code: NearbyMeetStatusCode, token: string) =>
+    request<NearbySnapshot>(`/nearby/meet-plans/${meetPlanId}/statuses`, { method: "POST", body: JSON.stringify({ code }) }, token),
+  blockNearbyProfile: (profileId: string, token: string) =>
+    request<NearbySnapshot>(`/nearby/blocks/${profileId}`, { method: "POST" }, token),
+  reportNearbyProfile: (input: NearbyReportInput, token: string) =>
+    request<{ reported: boolean }>("/nearby/reports", { method: "POST", body: JSON.stringify(input) }, token),
 };

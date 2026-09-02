@@ -6,12 +6,24 @@ import { ZodError } from "zod";
 import type { AuthProvider } from "./auth/auth-provider.js";
 import { AppError, unauthorized } from "./errors.js";
 import type { ProfileRepository } from "./repositories/profile-repository.js";
+import type { NearbyRepository } from "./repositories/nearby-repository.js";
 import { ProfileService } from "./services/profile-service.js";
-import { profileInputSchema, profileUpdateSchema, publicUsernameParamsSchema } from "@sia/validation";
+import { NearbyService } from "./services/nearby-service.js";
+import {
+  nearbyIdParamsSchema,
+  nearbyMeetActionInputSchema,
+  nearbyMeetStatusInputSchema,
+  nearbyProfileParamsSchema,
+  nearbySignalActionInputSchema,
+  profileInputSchema,
+  profileUpdateSchema,
+  publicUsernameParamsSchema,
+} from "@sia/validation";
 
 export type AppDependencies = {
   authProvider: AuthProvider;
   profileRepository: ProfileRepository;
+  nearbyRepository: NearbyRepository;
   webOrigin?: string;
   logger?: boolean;
 };
@@ -26,13 +38,21 @@ function bearerToken(header?: string) {
 export async function buildApp(dependencies: AppDependencies) {
   const app = Fastify({ logger: dependencies.logger ?? false });
   const profiles = new ProfileService(dependencies.profileRepository);
+  const nearby = new NearbyService(dependencies.nearbyRepository);
 
   await app.register(cors, {
     origin: dependencies.webOrigin ?? "http://localhost:3000",
-    methods: ["GET", "POST", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
   await app.register(helmet);
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+
+  app.addHook("onRequest", async (request, reply) => {
+    if (request.url.startsWith("/api/v1/nearby")) {
+      reply.header("Cache-Control", "no-store");
+      reply.header("Permissions-Policy", "geolocation=(self)");
+    }
+  });
 
   async function authenticatedUser(authorization?: string) {
     const identity = await dependencies.authProvider.verifyAccessToken(bearerToken(authorization));
@@ -63,6 +83,64 @@ export async function buildApp(dependencies: AppDependencies) {
   app.get("/api/v1/public/profiles/:username", async (request) => {
     const { username } = publicUsernameParamsSchema.parse(request.params);
     return { data: await profiles.getPublic(username) };
+  });
+
+  app.get("/api/v1/nearby", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await nearby.snapshot(user.userId) };
+  });
+
+  app.put("/api/v1/nearby/presence", { config: { rateLimit: { max: 40, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await nearby.updatePresence(user.userId, request.body) };
+  });
+
+  app.delete("/api/v1/nearby/presence", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await nearby.hide(user.userId) };
+  });
+
+  app.post("/api/v1/nearby/signals", { config: { rateLimit: { max: 12, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await nearby.sendSignal(user.userId, request.body) };
+  });
+
+  app.patch("/api/v1/nearby/signals/:id", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    const { id } = nearbyIdParamsSchema.parse(request.params);
+    const { action } = nearbySignalActionInputSchema.parse(request.body);
+    return { data: await nearby.respondToSignal(user.userId, id, action) };
+  });
+
+  app.post("/api/v1/nearby/connections/:id/meet-plans", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    const { id } = nearbyIdParamsSchema.parse(request.params);
+    return { data: await nearby.proposeMeeting(user.userId, id, request.body) };
+  });
+
+  app.patch("/api/v1/nearby/meet-plans/:id", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    const { id } = nearbyIdParamsSchema.parse(request.params);
+    const { action } = nearbyMeetActionInputSchema.parse(request.body);
+    return { data: await nearby.respondToMeeting(user.userId, id, action) };
+  });
+
+  app.post("/api/v1/nearby/meet-plans/:id/statuses", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    const { id } = nearbyIdParamsSchema.parse(request.params);
+    const { code } = nearbyMeetStatusInputSchema.parse(request.body);
+    return { data: await nearby.addMeetingStatus(user.userId, id, code) };
+  });
+
+  app.post("/api/v1/nearby/blocks/:profileId", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    const { profileId } = nearbyProfileParamsSchema.parse(request.params);
+    return { data: await nearby.block(user.userId, profileId) };
+  });
+
+  app.post("/api/v1/nearby/reports", { config: { rateLimit: { max: 5, timeWindow: "1 hour" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await nearby.report(user.userId, request.body) };
   });
 
   app.setNotFoundHandler((_request, reply) => {

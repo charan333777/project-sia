@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
-import type { Profile, ProfileInput } from "@sia/validation";
+import type {
+  NearbyDuration,
+  NearbyIntent,
+  NearbyMeetPlanInput,
+  NearbyMeetStatusCode,
+  NearbyReportInput,
+  Profile,
+  ProfileInput,
+} from "@sia/validation";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuthProvider } from "./auth/auth-provider.js";
 import { buildApp } from "./app.js";
 import type { ProfileRepository } from "./repositories/profile-repository.js";
+import type { NearbyRepository } from "./repositories/nearby-repository.js";
 
 class FakeAuth implements AuthProvider {
   async verifyAccessToken(token: string) {
@@ -42,6 +51,28 @@ class MemoryProfiles implements ProfileRepository {
   }
 }
 
+class MemoryNearby implements NearbyRepository {
+  presence: { duration: NearbyDuration; visibleUntil: Date } | null = null;
+
+  async pruneExpired() {}
+  async getPresence() { return this.presence; }
+  async upsertPresence(_userId: string, _latitude: number, _longitude: number, _accuracyM: number, duration: NearbyDuration, visibleUntil: Date) {
+    this.presence = { duration, visibleUntil };
+    return this.presence;
+  }
+  async removePresence() { this.presence = null; }
+  async findNearby() { return []; }
+  async createSignal(_userId: string, _targetProfileId: string, _intent: NearbyIntent) { return false; }
+  async listSignals() { return []; }
+  async respondToSignal(_userId: string, _signalId: string, _action: "accept" | "decline") { return false; }
+  async listConnections() { return []; }
+  async createMeetPlan(_userId: string, _connectionId: string, _input: NearbyMeetPlanInput, _expiresAt: Date) { return false; }
+  async respondToMeetPlan(_userId: string, _meetPlanId: string, _action: "accept" | "decline" | "cancel") { return false; }
+  async addMeetStatus(_userId: string, _meetPlanId: string, _code: NearbyMeetStatusCode) { return false; }
+  async blockProfile() { return false; }
+  async reportProfile(_userId: string, _input: NearbyReportInput) { return false; }
+}
+
 const input = {
   username: "zach",
   display_name: "Zach",
@@ -57,11 +88,13 @@ const input = {
 
 describe("profile API", () => {
   let repository: MemoryProfiles;
+  let nearbyRepository: MemoryNearby;
   let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeEach(async () => {
     repository = new MemoryProfiles();
-    app = await buildApp({ authProvider: new FakeAuth(), profileRepository: repository });
+    nearbyRepository = new MemoryNearby();
+    app = await buildApp({ authProvider: new FakeAuth(), profileRepository: repository, nearbyRepository });
   });
 
   afterEach(async () => app.close());
@@ -112,5 +145,34 @@ describe("profile API", () => {
     });
     expect(response.statusCode).toBe(409);
     expect(response.json().error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("keeps Nearby hidden until an authenticated user deliberately shares location", async () => {
+    const headers = { authorization: "Bearer valid" };
+    const hidden = await app.inject({ method: "GET", url: "/api/v1/nearby", headers });
+    expect(hidden.json().data.presence.active).toBe(false);
+
+    const visible = await app.inject({
+      method: "PUT",
+      url: "/api/v1/nearby/presence",
+      headers,
+      payload: { latitude: 51.5072, longitude: -0.1276, accuracy_m: 16, duration: "15m" },
+    });
+    expect(visible.statusCode).toBe(200);
+    expect(visible.json().data.presence).toMatchObject({ active: true, duration: "15m" });
+
+    const hiddenAgain = await app.inject({ method: "DELETE", url: "/api/v1/nearby/presence", headers });
+    expect(hiddenAgain.json().data.presence.active).toBe(false);
+  });
+
+  it("rejects unapproved free-form Nearby messages", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/nearby/signals",
+      headers: { authorization: "Bearer valid" },
+      payload: { target_profile_id: randomUUID(), intent: "send me your number" },
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
   });
 });
