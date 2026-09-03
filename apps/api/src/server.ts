@@ -4,6 +4,7 @@ import { buildApp } from "./app.js";
 import { loadConfig } from "./config.js";
 import { PostgresProfileRepository } from "./repositories/postgres-profile-repository.js";
 import { PostgresNearbyRepository } from "./repositories/postgres-nearby-repository.js";
+import { SupabaseProfilePhotoStorage } from "./services/profile-photo-storage.js";
 
 loadEnvironment({ path: [".env", "../../.env"], quiet: true });
 
@@ -12,6 +13,11 @@ const app = await buildApp({
   authProvider: new SupabaseAuthProvider(config.SUPABASE_URL, config.SUPABASE_SERVICE_ROLE_KEY),
   profileRepository: PostgresProfileRepository.connect(config.DATABASE_URL),
   nearbyRepository: PostgresNearbyRepository.connect(config.DATABASE_URL),
+  profilePhotoStorage: new SupabaseProfilePhotoStorage(
+    config.SUPABASE_URL,
+    config.SUPABASE_SERVICE_ROLE_KEY,
+    config.PROFILE_PHOTO_BUCKET,
+  ),
   webOrigin: config.WEB_ORIGIN,
   logger: true,
 });

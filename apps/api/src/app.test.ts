@@ -5,14 +5,15 @@ import type {
   NearbyMeetPlanInput,
   NearbyMeetStatusCode,
   NearbyReportInput,
-  Profile,
   ProfileInput,
+  StoredProfile,
 } from "@sia/validation";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuthProvider } from "./auth/auth-provider.js";
 import { buildApp } from "./app.js";
 import type { ProfileRepository } from "./repositories/profile-repository.js";
 import type { NearbyRepository } from "./repositories/nearby-repository.js";
+import type { ProfilePhotoStorage, ProfilePhotoType } from "./services/profile-photo-storage.js";
 
 class FakeAuth implements AuthProvider {
   async verifyAccessToken(token: string) {
@@ -21,14 +22,14 @@ class FakeAuth implements AuthProvider {
 }
 
 class MemoryProfiles implements ProfileRepository {
-  records: Profile[] = [];
+  records: StoredProfile[] = [];
 
   async create(userId: string, input: ProfileInput) {
     if (this.records.some((profile) => profile.username === input.username)) {
       throw Object.assign(new Error("duplicate"), { code: "23505" });
     }
     const now = new Date().toISOString();
-    const profile = { ...input, id: randomUUID(), user_id: userId, created_at: now, updated_at: now };
+    const profile = { ...input, id: randomUUID(), user_id: userId, avatar_path: null, created_at: now, updated_at: now };
     this.records.push(profile);
     return profile;
   }
@@ -49,6 +50,28 @@ class MemoryProfiles implements ProfileRepository {
     this.records[index] = updated;
     return updated;
   }
+
+  async updateAvatarPath(userId: string, avatarPath: string | null) {
+    const index = this.records.findIndex((profile) => profile.user_id === userId);
+    if (index < 0) return null;
+    const existing = this.records[index]!;
+    const updated = { ...existing, avatar_path: avatarPath, updated_at: new Date().toISOString() };
+    this.records[index] = updated;
+    return updated;
+  }
+}
+
+class MemoryPhotos implements ProfilePhotoStorage {
+  files = new Map<string, Buffer>();
+
+  async upload(userId: string, bytes: Buffer, _contentType: ProfilePhotoType) {
+    const path = `${userId}/${randomUUID()}.webp`;
+    this.files.set(path, bytes);
+    return path;
+  }
+
+  async remove(path: string) { this.files.delete(path); }
+  async createSignedUrl(path: string) { return `https://photos.example/${path}?signed=1`; }
 }
 
 class MemoryNearby implements NearbyRepository {
@@ -89,12 +112,14 @@ const input = {
 describe("profile API", () => {
   let repository: MemoryProfiles;
   let nearbyRepository: MemoryNearby;
+  let photoStorage: MemoryPhotos;
   let app: Awaited<ReturnType<typeof buildApp>>;
 
   beforeEach(async () => {
     repository = new MemoryProfiles();
     nearbyRepository = new MemoryNearby();
-    app = await buildApp({ authProvider: new FakeAuth(), profileRepository: repository, nearbyRepository });
+    photoStorage = new MemoryPhotos();
+    app = await buildApp({ authProvider: new FakeAuth(), profileRepository: repository, nearbyRepository, profilePhotoStorage: photoStorage });
   });
 
   afterEach(async () => app.close());
@@ -145,6 +170,47 @@ describe("profile API", () => {
     });
     expect(response.statusCode).toBe(409);
     expect(response.json().error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("uploads, replaces, and removes a private profile photo", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    const boundary = "sia-photo-boundary";
+    const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
+    const payload = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="avatar.webp"\r\nContent-Type: image/webp\r\n\r\n`),
+      png,
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const uploaded = await app.inject({
+      method: "POST",
+      url: "/api/v1/profiles/me/photo",
+      headers: { ...headers, "content-type": `multipart/form-data; boundary=${boundary}` },
+      payload,
+    });
+    expect(uploaded.statusCode).toBe(200);
+    expect(uploaded.json().data.avatar_url).toContain("https://photos.example/user-1/");
+    expect(photoStorage.files.size).toBe(1);
+
+    const removed = await app.inject({ method: "DELETE", url: "/api/v1/profiles/me/photo", headers });
+    expect(removed.statusCode).toBe(200);
+    expect(removed.json().data.avatar_url).toBeNull();
+    expect(photoStorage.files.size).toBe(0);
+  });
+
+  it("rejects file content that is not a supported image", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    const boundary = "sia-invalid-photo-boundary";
+    const payload = Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="photo"; filename="avatar.webp"\r\nContent-Type: image/webp\r\n\r\nnot-an-image\r\n--${boundary}--\r\n`);
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/profiles/me/photo",
+      headers: { ...headers, "content-type": `multipart/form-data; boundary=${boundary}` },
+      payload,
+    });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("INVALID_PROFILE_PHOTO");
   });
 
   it("keeps Nearby hidden until an authenticated user deliberately shares location", async () => {

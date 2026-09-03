@@ -28,10 +28,11 @@ export class ApiRequestError extends Error {
 }
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string) {
+  const hasFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
+      ...(!hasFormData ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -50,6 +51,13 @@ export const api = {
   getMyProfile: (token: string) => request<Profile>("/profiles/me", {}, token),
   updateProfile: (input: ProfileUpdate, token: string) =>
     request<Profile>("/profiles/me", { method: "PATCH", body: JSON.stringify(input) }, token),
+  uploadProfilePhoto: (file: Blob, token: string) => {
+    const form = new FormData();
+    form.append("photo", file, "profile-photo.webp");
+    return request<Profile>("/profiles/me/photo", { method: "POST", body: form }, token);
+  },
+  removeProfilePhoto: (token: string) =>
+    request<Profile>("/profiles/me/photo", { method: "DELETE" }, token),
   getPublicProfile: (username: string) =>
     request<Profile>(`/public/profiles/${encodeURIComponent(username)}`, { cache: "no-store" }),
   getNearby: (token: string) => request<NearbySnapshot>("/nearby", { cache: "no-store" }, token),

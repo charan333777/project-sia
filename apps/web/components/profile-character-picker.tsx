@@ -8,14 +8,17 @@ export function ProfileCharacterPicker({
   value,
   onChange,
   disabled = false,
+  includePlain = true,
 }: {
   value: ProfileCharacter;
   onChange: (character: ProfileCharacter) => void;
   disabled?: boolean;
+  includePlain?: boolean;
 }) {
+  const options = includePlain ? profileCharacterOptions : profileCharacterOptions.filter((character) => character.id !== "plain");
   return (
     <div className="profile-character-picker" role="radiogroup" aria-label="Profile character">
-      {profileCharacterOptions.map((character) => {
+      {options.map((character) => {
         const selected = value === character.id;
         return (
           <button

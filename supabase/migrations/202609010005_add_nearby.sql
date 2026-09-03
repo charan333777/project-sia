@@ -1,15 +1,36 @@
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS postgis SCHEMA extensions;
 
-CREATE TABLE IF NOT EXISTS public.nearby_presence (
-  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  location extensions.geography(POINT, 4326) NOT NULL,
-  accuracy_m real NOT NULL CHECK (accuracy_m >= 0 AND accuracy_m <= 5000),
-  duration text NOT NULL CHECK (duration IN ('15m', '60m', 'until_leave')),
-  visible_until timestamptz NOT NULL,
-  last_seen_at timestamptz NOT NULL DEFAULT now(),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+-- PostGIS may already be installed in `public`, `gis`, or another schema.
+-- `CREATE EXTENSION IF NOT EXISTS` does not relocate an existing installation,
+-- so resolve the real schema before referring to the geography type.
+DO $nearby_presence$
+DECLARE
+  postgis_schema text;
+BEGIN
+  SELECT namespace.nspname
+  INTO postgis_schema
+  FROM pg_extension extension
+  JOIN pg_namespace namespace ON namespace.oid = extension.extnamespace
+  WHERE extension.extname = 'postgis';
+
+  IF postgis_schema IS NULL THEN
+    RAISE EXCEPTION 'PostGIS must be installed before creating Nearby tables';
+  END IF;
+
+  EXECUTE format($sql$
+    CREATE TABLE IF NOT EXISTS public.nearby_presence (
+      user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+      location %I.geography(POINT, 4326) NOT NULL,
+      accuracy_m real NOT NULL CHECK (accuracy_m >= 0 AND accuracy_m <= 5000),
+      duration text NOT NULL CHECK (duration IN ('15m', '60m', 'until_leave')),
+      visible_until timestamptz NOT NULL,
+      last_seen_at timestamptz NOT NULL DEFAULT now(),
+      created_at timestamptz NOT NULL DEFAULT now()
+    )
+  $sql$, postgis_schema);
+END
+$nearby_presence$;
 
 CREATE INDEX IF NOT EXISTS nearby_presence_location_idx ON public.nearby_presence USING gist (location);
 CREATE INDEX IF NOT EXISTS nearby_presence_visible_until_idx ON public.nearby_presence (visible_until);

@@ -1,13 +1,13 @@
 import postgres, { type Sql } from "postgres";
-import type { Profile, ProfileInput } from "@sia/validation";
+import type { ProfileInput, StoredProfile } from "@sia/validation";
 import type { ProfileRepository } from "./profile-repository.js";
 
-type ProfileRow = Omit<Profile, "created_at" | "updated_at"> & {
+type ProfileRow = Omit<StoredProfile, "created_at" | "updated_at"> & {
   created_at: Date;
   updated_at: Date;
 };
 
-function serialize(row: ProfileRow): Profile {
+function serialize(row: ProfileRow): StoredProfile {
   return {
     ...row,
     created_at: row.created_at.toISOString(),
@@ -24,7 +24,7 @@ export class PostgresProfileRepository implements ProfileRepository {
     );
   }
 
-  async create(userId: string, input: ProfileInput): Promise<Profile> {
+  async create(userId: string, input: ProfileInput): Promise<StoredProfile> {
     const [row] = await this.sql<ProfileRow[]>`
       INSERT INTO profiles (
         user_id, username, display_name, role, bio, current_context, interests, open_to, is_public, profile_theme, profile_character
@@ -38,19 +38,19 @@ export class PostgresProfileRepository implements ProfileRepository {
     return serialize(row);
   }
 
-  async findByUserId(userId: string): Promise<Profile | null> {
+  async findByUserId(userId: string): Promise<StoredProfile | null> {
     const [row] = await this.sql<ProfileRow[]>`SELECT * FROM profiles WHERE user_id = ${userId} LIMIT 1`;
     return row ? serialize(row) : null;
   }
 
-  async findPublicByUsername(username: string): Promise<Profile | null> {
+  async findPublicByUsername(username: string): Promise<StoredProfile | null> {
     const [row] = await this.sql<ProfileRow[]>`
       SELECT * FROM profiles WHERE username = ${username} AND is_public = true LIMIT 1
     `;
     return row ? serialize(row) : null;
   }
 
-  async update(userId: string, input: ProfileInput): Promise<Profile | null> {
+  async update(userId: string, input: ProfileInput): Promise<StoredProfile | null> {
     const [row] = await this.sql<ProfileRow[]>`
       UPDATE profiles SET
         username = ${input.username},
@@ -63,6 +63,17 @@ export class PostgresProfileRepository implements ProfileRepository {
         is_public = ${input.is_public},
         profile_theme = ${input.profile_theme},
         profile_character = ${input.profile_character},
+        updated_at = now()
+      WHERE user_id = ${userId}
+      RETURNING *
+    `;
+    return row ? serialize(row) : null;
+  }
+
+  async updateAvatarPath(userId: string, avatarPath: string | null): Promise<StoredProfile | null> {
+    const [row] = await this.sql<ProfileRow[]>`
+      UPDATE profiles SET
+        avatar_path = ${avatarPath},
         updated_at = now()
       WHERE user_id = ${userId}
       RETURNING *

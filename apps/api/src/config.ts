@@ -9,6 +9,7 @@ const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  PROFILE_PHOTO_BUCKET: z.string().min(1).default("profile-photos"),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

@@ -94,6 +94,6 @@ PostGIS is installed by the committed Nearby migration. Deployed web origins mus
 
 ## V1 limitations
 
-Sia V1 has no map tiles, exact public pins, permanent inbox, feed, friends, followers, push notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with a colour theme and character, profiles are private by default, and one authenticated user can own one profile.
+Sia V1 has no map tiles, exact public pins, permanent inbox, feed, friends, followers, push notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with an optional private-storage photo, colour theme, character, or simple initial; profiles are private by default, and one authenticated user can own one profile.
 
 See [local development](docs/development/local-development.md), [system architecture](docs/architecture/system.md), and the [API reference](docs/api/v1.md) for implementation details.

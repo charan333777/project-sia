@@ -69,9 +69,14 @@ export const publicUsernameParamsSchema = z.object({ username: usernameSchema })
 export type ProfileInput = z.infer<typeof profileInputSchema>;
 export type ProfileUpdate = z.infer<typeof profileUpdateSchema>;
 
-export type Profile = ProfileInput & {
+export type StoredProfile = ProfileInput & {
   id: string;
   user_id: string;
+  avatar_path: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type Profile = StoredProfile & {
+  avatar_url: string | null;
 };

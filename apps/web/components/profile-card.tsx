@@ -5,14 +5,17 @@ import { getProfileTheme } from "./profile-themes";
 
 type DisplayProfile = Profile | ProfileInput;
 
-export function ProfileCard({ profile, compact = false }: { profile: DisplayProfile; compact?: boolean }) {
+export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { profile: DisplayProfile; compact?: boolean; photoPreviewUrl?: string | null }) {
   const theme = getProfileTheme(profile.profile_theme);
   const character = getProfileCharacterOption(profile.profile_character);
+  const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
   return (
     <article className={`profile-card profile-theme-${theme} ${compact ? "profile-card-compact" : ""}`}>
       <div className="profile-identity">
-        <div className={`profile-avatar ${character.imageSrc ? "profile-character-avatar" : ""}`} aria-hidden="true">
-          <span>{character.imageSrc
+        <div className={`profile-avatar ${photoUrl ? "profile-photo-avatar" : character.imageSrc ? "profile-character-avatar" : ""}`} aria-hidden="true">
+          <span>{photoUrl
+            ? <img src={photoUrl} alt="" width="72" height="72" draggable={false} />
+            : character.imageSrc
             ? <img src={character.imageSrc} alt="" width="72" height="72" draggable={false} />
             : profile.display_name.slice(0, 1).toUpperCase()}</span>
         </div>

@@ -39,10 +39,28 @@ function profileFrom(row: ProfileColumns): NearbyProfileRecord {
 }
 
 export class PostgresNearbyRepository implements NearbyRepository {
+  private postgisSchemaPromise: Promise<string> | null = null;
+
   constructor(private readonly sql: Sql) {}
 
   static connect(databaseUrl: string) {
     return new PostgresNearbyRepository(postgres(databaseUrl, { max: 10, idle_timeout: 20, connect_timeout: 10 }));
+  }
+
+  private getPostgisSchema() {
+    if (!this.postgisSchemaPromise) {
+      this.postgisSchemaPromise = this.sql<{ schema_name: string }[]>`
+        SELECT namespace.nspname AS schema_name
+        FROM pg_extension extension
+        JOIN pg_namespace namespace ON namespace.oid = extension.extnamespace
+        WHERE extension.extname = 'postgis'
+        LIMIT 1
+      `.then(([row]) => {
+        if (!row) throw new Error("PostGIS extension is not installed");
+        return row.schema_name;
+      });
+    }
+    return this.postgisSchemaPromise;
   }
 
   async pruneExpired() {
@@ -65,11 +83,13 @@ export class PostgresNearbyRepository implements NearbyRepository {
   }
 
   async upsertPresence(userId: string, latitude: number, longitude: number, accuracyM: number, duration: NearbyDuration, visibleUntil: Date) {
+    const postgisSchema = await this.getPostgisSchema();
+    const postgis = this.sql(postgisSchema);
     const [row] = await this.sql<{ duration: NearbyDuration; visible_until: Date }[]>`
       INSERT INTO public.nearby_presence (user_id, location, accuracy_m, duration, visible_until, last_seen_at)
       VALUES (
         ${userId},
-        extensions.st_point(${longitude}, ${latitude})::extensions.geography,
+        ${postgis}.st_point(${longitude}, ${latitude})::${postgis}.geography,
         ${accuracyM}, ${duration}, ${visibleUntil}, now()
       )
       ON CONFLICT (user_id) DO UPDATE SET
@@ -94,6 +114,8 @@ export class PostgresNearbyRepository implements NearbyRepository {
   }
 
   async findNearby(userId: string): Promise<NearbyCandidateRecord[]> {
+    const postgisSchema = await this.getPostgisSchema();
+    const postgis = this.sql(postgisSchema);
     const rows = await this.sql<(ProfileColumns & { distance_m: number; bearing_degrees: number; match_count: number })[]>`
       SELECT
         p.user_id,
@@ -103,8 +125,8 @@ export class PostgresNearbyRepository implements NearbyRepository {
         p.current_context,
         p.interests,
         p.open_to,
-        extensions.st_distance(me.location, other.location)::double precision AS distance_m,
-        degrees(extensions.st_azimuth(me.location::extensions.geometry, other.location::extensions.geometry))::double precision AS bearing_degrees,
+        ${postgis}.st_distance(me.location, other.location)::double precision AS distance_m,
+        degrees(${postgis}.st_azimuth(me.location::${postgis}.geometry, other.location::${postgis}.geometry))::double precision AS bearing_degrees,
         (
           SELECT count(*)::integer
           FROM unnest(p.interests) AS candidate_interest
@@ -117,7 +139,7 @@ export class PostgresNearbyRepository implements NearbyRepository {
       WHERE me.user_id = ${userId}
         AND me.visible_until > now()
         AND other.visible_until > now()
-        AND extensions.st_dwithin(me.location, other.location, 200)
+        AND ${postgis}.st_dwithin(me.location, other.location, 200)
         AND NOT EXISTS (
           SELECT 1 FROM public.nearby_blocks b
           WHERE (b.blocker_user_id = me.user_id AND b.blocked_user_id = other.user_id)
@@ -141,6 +163,8 @@ export class PostgresNearbyRepository implements NearbyRepository {
   }
 
   async createSignal(userId: string, targetProfileId: string, intent: NearbyIntent): Promise<boolean> {
+    const postgisSchema = await this.getPostgisSchema();
+    const postgis = this.sql(postgisSchema);
     const [row] = await this.sql<{ id: string }[]>`
       INSERT INTO public.nearby_signals (sender_user_id, recipient_user_id, intent, expires_at)
       SELECT
@@ -155,7 +179,7 @@ export class PostgresNearbyRepository implements NearbyRepository {
         AND me.visible_until > now()
         AND target_presence.visible_until > now()
         AND target.user_id <> me.user_id
-        AND extensions.st_dwithin(me.location, target_presence.location, 200)
+        AND ${postgis}.st_dwithin(me.location, target_presence.location, 200)
         AND NOT EXISTS (
           SELECT 1 FROM public.nearby_blocks b
           WHERE (b.blocker_user_id = me.user_id AND b.blocked_user_id = target.user_id)

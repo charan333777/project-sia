@@ -1,5 +1,6 @@
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
+import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
 import Fastify from "fastify";
 import { ZodError } from "zod";
@@ -8,6 +9,7 @@ import { AppError, unauthorized } from "./errors.js";
 import type { ProfileRepository } from "./repositories/profile-repository.js";
 import type { NearbyRepository } from "./repositories/nearby-repository.js";
 import { ProfileService } from "./services/profile-service.js";
+import { MAX_PROFILE_PHOTO_BYTES, type ProfilePhotoStorage } from "./services/profile-photo-storage.js";
 import { NearbyService } from "./services/nearby-service.js";
 import {
   nearbyIdParamsSchema,
@@ -24,6 +26,7 @@ export type AppDependencies = {
   authProvider: AuthProvider;
   profileRepository: ProfileRepository;
   nearbyRepository: NearbyRepository;
+  profilePhotoStorage?: ProfilePhotoStorage;
   webOrigin?: string;
   logger?: boolean;
 };
@@ -37,7 +40,7 @@ function bearerToken(header?: string) {
 
 export async function buildApp(dependencies: AppDependencies) {
   const app = Fastify({ logger: dependencies.logger ?? false });
-  const profiles = new ProfileService(dependencies.profileRepository);
+  const profiles = new ProfileService(dependencies.profileRepository, dependencies.profilePhotoStorage);
   const nearby = new NearbyService(dependencies.nearbyRepository);
 
   await app.register(cors, {
@@ -45,6 +48,9 @@ export async function buildApp(dependencies: AppDependencies) {
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
   await app.register(helmet);
+  await app.register(multipart, {
+    limits: { files: 1, fileSize: MAX_PROFILE_PHOTO_BYTES },
+  });
   await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
 
   app.addHook("onRequest", async (request, reply) => {
@@ -78,6 +84,25 @@ export async function buildApp(dependencies: AppDependencies) {
     const user = await authenticatedUser(request.headers.authorization);
     const input = profileUpdateSchema.parse(request.body);
     return { data: await profiles.updateMine(user.userId, input) };
+  });
+
+  app.post("/api/v1/profiles/me/photo", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    let file;
+    try {
+      file = await request.file();
+      if (!file) throw new Error("missing file");
+      const bytes = await file.toBuffer();
+      return { data: await profiles.uploadPhoto(user.userId, bytes) };
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw new AppError(400, "INVALID_PROFILE_PHOTO", "Choose a JPEG, PNG, or WebP photo smaller than 5 MB.");
+    }
+  });
+
+  app.delete("/api/v1/profiles/me/photo", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.removePhoto(user.userId) };
   });
 
   app.get("/api/v1/public/profiles/:username", async (request) => {

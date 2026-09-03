@@ -56,7 +56,7 @@ function addPosterCharacterFrame(poster: SVGElement, characterId: ProfileCharact
   appendSvgElement(poster, "ellipse", { cx: "945", cy: "570", rx: isPuppy ? "92" : "118", ry: isPuppy ? "205" : "222", fill, opacity: ".94", transform: `rotate(${isPuppy ? "-10" : "-4"} 945 570)` });
 }
 
-function buildQrPoster(profile: Profile, qr: SVGSVGElement, mascotDataUrl: string | null) {
+function buildQrPoster(profile: Profile, qr: SVGSVGElement, avatarDataUrl: string | null) {
   const themeId = getProfileTheme(profile.profile_theme);
   const theme = profileThemeOptions.find((option) => option.id === themeId) ?? profileThemeOptions[0]!;
   const character = getProfileCharacterOption(profile.profile_character);
@@ -71,7 +71,7 @@ function buildQrPoster(profile: Profile, qr: SVGSVGElement, mascotDataUrl: strin
   appendSvgElement(poster, "circle", { cx: "85", cy: "1230", r: "210", fill: theme.soft, opacity: ".48" });
   const brand = appendSvgElement(poster, "text", { x: "540", y: "142", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "56", "font-weight": "700", "text-anchor": "middle" });
   brand.textContent = "Sia";
-  addPosterCharacterFrame(poster, character.id, theme.soft, theme.accent);
+  if (!profile.avatar_url) addPosterCharacterFrame(poster, character.id, theme.soft, theme.accent);
   appendSvgElement(poster, "rect", { x: "155", y: "185", width: "770", height: "770", rx: "45", fill: "#ffffff", stroke: theme.soft, "stroke-width": "5" });
 
   const qrClone = qr.cloneNode(true) as SVGSVGElement;
@@ -82,15 +82,20 @@ function buildQrPoster(profile: Profile, qr: SVGSVGElement, mascotDataUrl: strin
   qrClone.setAttribute("height", "720");
   poster.appendChild(qrClone);
 
-  if (mascotDataUrl) {
+  if (avatarDataUrl) {
     appendSvgElement(poster, "circle", { cx: "540", cy: "1045", r: "82", fill: "#ffffff", stroke: theme.soft, "stroke-width": "5" });
-    appendSvgElement(poster, "image", { x: "472", y: "977", width: "136", height: "136", href: mascotDataUrl, preserveAspectRatio: "xMidYMid meet" });
+    if (profile.avatar_url) {
+      const definitions = appendSvgElement(poster, "defs", {});
+      const clip = appendSvgElement(definitions, "clipPath", { id: "sia-avatar-clip" });
+      appendSvgElement(clip, "circle", { cx: "540", cy: "1045", r: "68" });
+    }
+    appendSvgElement(poster, "image", { x: "472", y: "977", width: "136", height: "136", href: avatarDataUrl, preserveAspectRatio: profile.avatar_url ? "xMidYMid slice" : "xMidYMid meet", ...(profile.avatar_url ? { "clip-path": "url(#sia-avatar-clip)" } : {}) });
   }
-  const name = appendSvgElement(poster, "text", { x: "540", y: mascotDataUrl ? "1190" : "1095", fill: theme.ink, "font-family": "Georgia, serif", "font-size": "78", "font-weight": "600", "text-anchor": "middle" });
+  const name = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1190" : "1095", fill: theme.ink, "font-family": "Georgia, serif", "font-size": "78", "font-weight": "600", "text-anchor": "middle" });
   name.textContent = profile.display_name;
-  const invitation = appendSvgElement(poster, "text", { x: "540", y: mascotDataUrl ? "1262" : "1172", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "38", "font-weight": "600", "text-anchor": "middle" });
+  const invitation = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1262" : "1172", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "38", "font-weight": "600", "text-anchor": "middle" });
   invitation.textContent = `Scan to meet ${profile.display_name}`;
-  appendSvgElement(poster, "circle", { cx: "540", cy: mascotDataUrl ? "1318" : "1265", r: "10", fill: theme.accent });
+  appendSvgElement(poster, "circle", { cx: "540", cy: avatarDataUrl ? "1318" : "1265", r: "10", fill: theme.accent });
   return poster;
 }
 
@@ -136,9 +141,9 @@ export default function QrPage() {
     if (!svg) return;
     try {
       setStatus("Preparing card…");
-      const mascotPath = getProfileCharacterOption(profile.profile_character).imageSrc;
-      const mascotDataUrl = mascotPath ? await imageAssetToDataUrl(mascotPath) : null;
-      const poster = buildQrPoster(profile, svg, mascotDataUrl);
+      const avatarPath = profile.avatar_url ?? getProfileCharacterOption(profile.profile_character).imageSrc;
+      const avatarDataUrl = avatarPath ? await imageAssetToDataUrl(avatarPath) : null;
+      const poster = buildQrPoster(profile, svg, avatarDataUrl);
       const source = new XMLSerializer().serializeToString(poster);
       const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
       const blobUrl = URL.createObjectURL(blob);
@@ -172,17 +177,22 @@ export default function QrPage() {
     }
   };
   const chooseCharacter = async (nextCharacter: ProfileCharacter) => {
-    if (!session || savingStyle || nextCharacter === getProfileCharacter(profile.profile_character)) return;
+    if (!session || savingStyle || (!profile.avatar_path && nextCharacter === getProfileCharacter(profile.profile_character))) return;
     const previous = profile;
-    setProfile({ ...profile, profile_character: nextCharacter });
+    let photoRemoved = false;
     setSavingStyle(true);
     setStatus("");
     try {
+      if (profile.avatar_path) {
+        const withoutPhoto = await api.removeProfilePhoto(session.access_token);
+        photoRemoved = true;
+        setProfile(withoutPhoto);
+      }
       const updated = await api.updateProfile({ profile_character: nextCharacter }, session.access_token);
       setProfile(updated);
       setStatus("Character saved");
     } catch {
-      setProfile(previous);
+      setProfile(photoRemoved ? { ...previous, avatar_path: null, avatar_url: null } : previous);
       setStatus("Couldn’t save character");
     } finally {
       setSavingStyle(false);
@@ -193,7 +203,7 @@ export default function QrPage() {
       <QrViewer profile={profile} url={url} />
       <section className="qr-personality-panel" aria-labelledby="qr-personality-heading">
         <div className="qr-personality-heading"><span><Palette size={19} /></span><div><strong id="qr-personality-heading">Make it yours</strong><small>QR + profile</small></div></div>
-        <div className="qr-personality-control"><strong>Character</strong><small>Show your personality.</small></div>
+        <div className="qr-personality-control"><strong>Character</strong><small>{profile.avatar_url ? "Choosing one replaces your photo." : "Show your personality."}</small></div>
         <ProfileCharacterPicker value={getProfileCharacter(profile.profile_character)} onChange={(character) => void chooseCharacter(character)} disabled={savingStyle} />
         <div className="qr-personality-control"><strong>Colour mood</strong><small>Make the character feel like you.</small></div>
         <ProfileThemePicker value={getProfileTheme(profile.profile_theme)} onChange={(theme) => void chooseTheme(theme)} disabled={savingStyle} />

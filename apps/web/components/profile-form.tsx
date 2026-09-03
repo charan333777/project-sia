@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   ArrowRight,
+  Camera,
   Check,
   ChevronDown,
   Globe2,
@@ -11,15 +12,17 @@ import {
   Palette,
   PawPrint,
   Sparkles,
+  Type as TypeIcon,
   UserRound,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { profileInputSchema, type ProfileInput } from "@sia/validation";
+import { profileInputSchema, type Profile, type ProfileInput } from "@sia/validation";
 import { Button } from "./button";
 import { TextAreaField, TextField } from "./field";
 import { ProfileCard } from "./profile-card";
 import { ProfileCharacterPicker } from "./profile-character-picker";
 import { getProfileCharacter, getProfileCharacterOption } from "./profile-characters";
+import { ProfilePhotoPicker } from "./profile-photo-picker";
 import { ProfileThemePicker } from "./profile-theme-picker";
 import { getProfileTheme, profileThemeOptions } from "./profile-themes";
 import { TagPicker } from "./tag-picker";
@@ -47,6 +50,65 @@ const steps = [
   { label: "Style", icon: PawPrint },
   { label: "Visibility", icon: Globe2 },
 ];
+
+type AvatarMode = "photo" | "character" | "initial";
+export type ProfilePhotoChange = { action: "keep" } | { action: "upload"; photo: Blob } | { action: "remove" };
+
+function profilePhotoUrl(profile: ProfileInput | Profile) {
+  return "avatar_url" in profile ? profile.avatar_url : null;
+}
+
+function profileHasPhoto(profile: ProfileInput | Profile) {
+  return "avatar_path" in profile && Boolean(profile.avatar_path);
+}
+
+function initialAvatarMode(profile: ProfileInput | Profile): AvatarMode {
+  if (profileHasPhoto(profile)) return "photo";
+  return getProfileCharacter(profile.profile_character) === "plain" ? "initial" : "character";
+}
+
+function useAvatarEditor(initialValue: ProfileInput | Profile) {
+  const originalPhotoUrl = profilePhotoUrl(initialValue);
+  const originallyHadPhoto = profileHasPhoto(initialValue);
+  const [avatarMode, setAvatarMode] = useState<AvatarMode>(() => initialAvatarMode(initialValue));
+  const [photo, setPhoto] = useState<Blob | null>(null);
+  const [localPhotoUrl, setLocalPhotoUrl] = useState<string | null>(null);
+  const localPhotoUrlRef = useRef<string | null>(null);
+
+  useEffect(() => () => {
+    if (localPhotoUrlRef.current) URL.revokeObjectURL(localPhotoUrlRef.current);
+  }, []);
+
+  const choosePhoto = (nextPhoto: Blob) => {
+    if (localPhotoUrlRef.current) URL.revokeObjectURL(localPhotoUrlRef.current);
+    const nextUrl = URL.createObjectURL(nextPhoto);
+    localPhotoUrlRef.current = nextUrl;
+    setLocalPhotoUrl(nextUrl);
+    setPhoto(nextPhoto);
+    setAvatarMode("photo");
+  };
+
+  const clearLocalPhoto = () => {
+    if (localPhotoUrlRef.current) URL.revokeObjectURL(localPhotoUrlRef.current);
+    localPhotoUrlRef.current = null;
+    setLocalPhotoUrl(null);
+    setPhoto(null);
+  };
+
+  const removePhoto = () => {
+    clearLocalPhoto();
+    setAvatarMode("initial");
+  };
+
+  const previewUrl = avatarMode === "photo" ? localPhotoUrl ?? originalPhotoUrl : null;
+  const change: ProfilePhotoChange = avatarMode === "photo" && photo
+    ? { action: "upload", photo }
+    : originallyHadPhoto && avatarMode !== "photo"
+      ? { action: "remove" }
+      : { action: "keep" };
+
+  return { avatarMode, setAvatarMode, choosePhoto, removePhoto, previewUrl, change };
+}
 
 function validationErrors(value: ProfileInput) {
   const result = profileInputSchema.safeParse(value);
@@ -145,12 +207,53 @@ function VisibilityChoice({ value, set, onChoose, chosen = true }: Pick<FormFiel
   );
 }
 
-function StyleFields({ value, set }: Pick<FormFieldsProps, "value" | "set">) {
+function StyleFields({
+  value,
+  set,
+  avatarMode,
+  photoPreviewUrl,
+  photoError,
+  onAvatarModeChange,
+  onPhotoSelected,
+  onPhotoRemove,
+}: Pick<FormFieldsProps, "value" | "set"> & {
+  avatarMode: AvatarMode;
+  photoPreviewUrl: string | null;
+  photoError?: string;
+  onAvatarModeChange: (mode: AvatarMode) => void;
+  onPhotoSelected: (photo: Blob) => void;
+  onPhotoRemove: () => void;
+}) {
+  const character = getProfileCharacterOption(value.profile_character === "plain" ? "elephant" : value.profile_character);
+  const chooseMode = (mode: AvatarMode) => {
+    if (mode === "initial") set("profile_character", "plain");
+    if (mode === "character" && value.profile_character === "plain") set("profile_character", "elephant");
+    onAvatarModeChange(mode);
+  };
   return (
     <div className="profile-style-fields">
-      <section className="profile-style-section" aria-labelledby="character-style-heading">
-        <div className="profile-style-heading"><strong id="character-style-heading">Choose your character</strong><small>The personality people notice first.</small></div>
-        <ProfileCharacterPicker value={getProfileCharacter(value.profile_character)} onChange={(character) => set("profile_character", character)} />
+      <section className="profile-style-section" aria-labelledby="appearance-style-heading">
+        <div className="profile-style-heading"><strong id="appearance-style-heading">How would you like to appear?</strong><small>Choose what people notice first.</small></div>
+        <div className="avatar-mode-grid" role="radiogroup" aria-label="Profile appearance">
+          <button type="button" role="radio" aria-checked={avatarMode === "photo"} className={`avatar-mode-option ${avatarMode === "photo" ? "avatar-mode-option-selected" : ""}`} onClick={() => chooseMode("photo")}>
+            <span className={`avatar-mode-visual ${photoPreviewUrl ? "avatar-mode-photo" : ""}`}>{photoPreviewUrl ? <img src={photoPreviewUrl} alt="" /> : <Camera size={25} />}</span>
+            <strong>My photo</strong><small>Personal</small>
+            {avatarMode === "photo" && <Check size={14} aria-hidden="true" />}
+          </button>
+          <button type="button" role="radio" aria-checked={avatarMode === "character"} className={`avatar-mode-option ${avatarMode === "character" ? "avatar-mode-option-selected" : ""}`} onClick={() => chooseMode("character")}>
+            <span className="avatar-mode-visual avatar-mode-character"><img src={character.imageSrc ?? "/mascots/elephant.png"} alt="" /></span>
+            <strong>Sia character</strong><small>Expressive</small>
+            {avatarMode === "character" && <Check size={14} aria-hidden="true" />}
+          </button>
+          <button type="button" role="radio" aria-checked={avatarMode === "initial"} className={`avatar-mode-option ${avatarMode === "initial" ? "avatar-mode-option-selected" : ""}`} onClick={() => chooseMode("initial")}>
+            <span className="avatar-mode-visual avatar-mode-initial">{value.display_name.slice(0, 1).toUpperCase() || <TypeIcon size={25} />}</span>
+            <strong>Initial only</strong><small>Simple</small>
+            {avatarMode === "initial" && <Check size={14} aria-hidden="true" />}
+          </button>
+        </div>
+        {avatarMode === "photo" && <><ProfilePhotoPicker previewUrl={photoPreviewUrl} onPhotoSelected={onPhotoSelected} onRemove={onPhotoRemove} />{photoError && <p className="field-error photo-mode-error" role="alert">{photoError}</p>}</>}
+        {avatarMode === "character" && <div className="avatar-character-choices"><p>Choose your Sia character.</p><ProfileCharacterPicker includePlain={false} value={getProfileCharacter(value.profile_character)} onChange={(characterId) => set("profile_character", characterId)} /></div>}
+        {avatarMode === "initial" && <p className="avatar-initial-note">We’ll use the first letter of your name. You can add a photo anytime.</p>}
       </section>
       <section className="profile-style-section" aria-labelledby="colour-style-heading">
         <div className="profile-style-heading"><strong id="colour-style-heading">Choose your colour mood</strong><small>Mix any mood with any character.</small></div>
@@ -167,17 +270,18 @@ export function ProfileForm({
   serverError,
   onSubmit,
 }: {
-  initialValue?: ProfileInput;
+  initialValue?: ProfileInput | Profile;
   submitLabel: string;
   submitting?: boolean;
   serverError?: string;
-  onSubmit: (profile: ProfileInput) => void | Promise<void>;
+  onSubmit: (profile: ProfileInput, photoChange: ProfilePhotoChange) => void | Promise<void>;
 }) {
   const [value, setValue] = useState<ProfileInput>(initialValue);
   const [step, setStep] = useState(0);
   const [visibilityChosen, setVisibilityChosen] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const wizardHeadingRef = useRef<HTMLDivElement>(null);
+  const avatar = useAvatarEditor(initialValue);
   const set = <K extends keyof ProfileInput>(key: K, next: ProfileInput[K]) => setValue((current) => ({ ...current, [key]: next }));
   const currentStep = steps[step] ?? steps[0]!;
   const CurrentIcon = currentStep.icon;
@@ -202,6 +306,10 @@ export function ProfileForm({
         return;
       }
     }
+    if (step === 3 && avatar.avatarMode === "photo" && !avatar.previewUrl) {
+      setErrors({ photo: "Take or choose a photo, or select another option." });
+      return;
+    }
     setErrors({});
     setStep((current) => Math.min(current + 1, steps.length - 1));
   };
@@ -216,7 +324,7 @@ export function ProfileForm({
     const result = validationErrors(value);
     if (!result.data) { setErrors(result.errors); return; }
     setErrors({});
-    void onSubmit(result.data);
+    void onSubmit(result.data, avatar.change);
   };
 
   return (
@@ -251,7 +359,7 @@ export function ProfileForm({
               <TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} />
             </div>
           )}
-          {step === 3 && <StyleFields value={value} set={set} />}
+          {step === 3 && <StyleFields value={value} set={set} avatarMode={avatar.avatarMode} photoPreviewUrl={avatar.previewUrl} photoError={errors.photo} onAvatarModeChange={(mode) => { avatar.setAvatarMode(mode); setErrors({}); }} onPhotoSelected={(photo) => { avatar.choosePhoto(photo); setErrors({}); }} onPhotoRemove={() => { avatar.removePhoto(); set("profile_character", "plain"); setErrors({}); }} />}
           {step === 4 && (
             <>
               <p className="visibility-lede">Who can open your profile?</p>
@@ -271,7 +379,7 @@ export function ProfileForm({
 
       <aside className="builder-preview" aria-label="Live profile preview">
         <span className="builder-preview-label">Live preview</span>
-        <ProfileCard profile={preview} compact />
+        <ProfileCard profile={preview} photoPreviewUrl={avatar.previewUrl} compact />
       </aside>
     </div>
   );
@@ -283,20 +391,25 @@ export function EditProfileForm({
   serverError,
   onSubmit,
 }: {
-  initialValue: ProfileInput;
+  initialValue: Profile;
   submitting?: boolean;
   serverError?: string;
-  onSubmit: (profile: ProfileInput) => void | Promise<void>;
+  onSubmit: (profile: ProfileInput, photoChange: ProfilePhotoChange) => void | Promise<void>;
 }) {
   const [value, setValue] = useState<ProfileInput>(initialValue);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const avatar = useAvatarEditor(initialValue);
   const set = <K extends keyof ProfileInput>(key: K, next: ProfileInput[K]) => setValue((current) => ({ ...current, [key]: next }));
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
+    if (avatar.avatarMode === "photo" && !avatar.previewUrl) {
+      setErrors({ photo: "Take or choose a photo, or select another option." });
+      return;
+    }
     const result = validationErrors(value);
     if (!result.data) { setErrors(result.errors); return; }
     setErrors({});
-    void onSubmit(result.data);
+    void onSubmit(result.data, avatar.change);
   };
 
   return (
@@ -316,8 +429,8 @@ export function EditProfileForm({
         <div className="edit-details-body connect-fields"><TagPicker label="I’m into" helper="Pick a few." suggestions={interestSuggestions} value={value.interests} onChange={(nextValue) => set("interests", nextValue)} /><TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} /></div>
       </details>
       <details className="edit-details">
-        <summary><span><Palette size={18} /> Style</span><span className="visibility-summary">{getProfileCharacterOption(value.profile_character).label} · {profileThemeOptions.find((theme) => theme.id === getProfileTheme(value.profile_theme))?.label}</span><ChevronDown size={18} /></summary>
-        <div className="edit-details-body"><StyleFields value={value} set={set} /></div>
+        <summary><span><Palette size={18} /> Style</span><span className="visibility-summary">{avatar.avatarMode === "photo" ? "My photo" : avatar.avatarMode === "initial" ? "Initial" : getProfileCharacterOption(value.profile_character).label} · {profileThemeOptions.find((theme) => theme.id === getProfileTheme(value.profile_theme))?.label}</span><ChevronDown size={18} /></summary>
+        <div className="edit-details-body"><StyleFields value={value} set={set} avatarMode={avatar.avatarMode} photoPreviewUrl={avatar.previewUrl} photoError={errors.photo} onAvatarModeChange={(mode) => { avatar.setAvatarMode(mode); setErrors({}); }} onPhotoSelected={(photo) => { avatar.choosePhoto(photo); setErrors({}); }} onPhotoRemove={() => { avatar.removePhoto(); set("profile_character", "plain"); setErrors({}); }} /></div>
       </details>
       <details className="edit-details">
         <summary><span><Globe2 size={18} /> Visibility</span><span className="visibility-summary">{value.is_public ? "Public" : "Private"}</span><ChevronDown size={18} /></summary>

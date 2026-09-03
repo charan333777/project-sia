@@ -18,12 +18,15 @@ The versioned schema is maintained in `supabase/migrations/`.
 | `is_public` | boolean | Defaults to false |
 | `profile_theme` | text | One of `calm`, `warm`, `bold`, or `play` |
 | `profile_character` | text | One of `plain`, `puppy`, `elephant`, `panda`, or `play`; defaults to `plain` |
+| `avatar_path` | text | Nullable path to a private Supabase Storage object |
 | `created_at` | timestamptz | Creation time |
 | `updated_at` | timestamptz | Last API update time |
 
 The database includes unique indexes for owner and case-insensitive username integrity plus a partial public-username index. Check constraints provide defense in depth for username format, array size, theme, and character choices. PostgreSQL queries are parameterized through the `postgres` client.
 
 RLS is enabled. V1 deliberately creates no browser-facing policies because all profile persistence and retrieval flows through the Fastify API. The API service credential must remain server-only.
+
+Profile photos live in the private `profile-photos` Storage bucket. The API validates uploads, owns replacement/deletion, and returns one-hour signed URLs only after the same owner/public-profile access checks used for profile data.
 
 ## Nearby tables
 

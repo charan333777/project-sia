@@ -10,6 +10,7 @@ import { Button } from "@/components/button";
 import { TextField } from "@/components/field";
 import { api, ApiRequestError } from "@/lib/api";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import { clearProfilePhotoDraft, loadProfilePhotoDraft } from "@/lib/profile-photo-draft";
 
 function LoginForm() {
   const router = useRouter();
@@ -35,15 +36,17 @@ function LoginForm() {
     if (!rawDraft) { router.push("/profile"); return; }
     try {
       const draft = profileInputSchema.parse(JSON.parse(rawDraft));
-      await api.createProfile(draft, accessToken);
+      try {
+        await api.createProfile(draft, accessToken);
+      } catch (caught) {
+        if (!(caught instanceof ApiRequestError && caught.code === "PROFILE_EXISTS")) throw caught;
+      }
+      const draftPhoto = await loadProfilePhotoDraft();
+      if (draftPhoto) await api.uploadProfilePhoto(draftPhoto, accessToken);
       sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+      await clearProfilePhotoDraft().catch(() => undefined);
       router.push("/profile?created=1");
     } catch (caught) {
-      if (caught instanceof ApiRequestError && caught.code === "PROFILE_EXISTS") {
-        sessionStorage.removeItem(PROFILE_DRAFT_KEY);
-        router.push("/profile");
-        return;
-      }
       throw caught;
     }
   };
