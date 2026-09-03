@@ -3,7 +3,8 @@ import { NearbyExperience } from "@/components/nearby-experience";
 
 export const metadata: Metadata = {
   title: "Nearby",
-  description: "See who’s open to hello nearby.",
+  description: "Use Sia Nearby to find people who are open to meeting without sharing exact location pins.",
+  robots: { index: false, follow: false, nocache: true },
 };
 
 export default function NearbyPage() {

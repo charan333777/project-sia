@@ -55,6 +55,7 @@ Browser-visible:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: public anon/publishable key.
 - `NEXT_PUBLIC_API_URL`: normally `http://localhost:4000/api/v1`.
 - `NEXT_PUBLIC_SITE_URL`: canonical origin used by profile links and QR codes.
+- `GOOGLE_SITE_VERIFICATION`, `BING_SITE_VERIFICATION`: optional ownership tokens for production search-console verification.
 
 API-only:
 
@@ -91,6 +92,10 @@ docker run --env-file .env -p 4000:4000 sia-api
 Nearby is opt-in and hidden by default. The browser sends precise coordinates only to the authenticated API; PostGIS performs a 200 m search and the API returns distance bands plus a quantized direction, never raw coordinates. A Wave uses a preset intention, requires mutual acceptance, and opens a temporary Meet Card with public-place/time suggestions and preset coordination updates. Presence, Waves, connections, and meeting data expire automatically.
 
 PostGIS is installed by the committed Nearby migration. Deployed web origins must use HTTPS for browser geolocation; `localhost` is accepted by browsers during development.
+
+## Search launch checklist
+
+Before deploying, set `NEXT_PUBLIC_SITE_URL` to the final HTTPS origin. After the site is live, add the optional Google Search Console and Bing Webmaster Tools verification tokens, then submit `/sitemap.xml` in each service. Sia generates canonical metadata, social preview images, `robots.txt`, the sitemap and structured data automatically.
 
 ## V1 limitations
 
