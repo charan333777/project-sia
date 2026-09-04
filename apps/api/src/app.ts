@@ -18,6 +18,7 @@ import {
   nearbyProfileParamsSchema,
   nearbySignalActionInputSchema,
   profileInputSchema,
+  profileStatusInputSchema,
   profileUpdateSchema,
   publicUsernameParamsSchema,
 } from "@sia/validation";
@@ -84,6 +85,16 @@ export async function buildApp(dependencies: AppDependencies) {
     const user = await authenticatedUser(request.headers.authorization);
     const input = profileUpdateSchema.parse(request.body);
     return { data: await profiles.updateMine(user.userId, input) };
+  });
+
+  app.put("/api/v1/profiles/me/status", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.setStatus(user.userId, profileStatusInputSchema.parse(request.body)) };
+  });
+
+  app.delete("/api/v1/profiles/me/status", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.clearStatus(user.userId) };
   });
 
   app.post("/api/v1/profiles/me/photo", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request) => {

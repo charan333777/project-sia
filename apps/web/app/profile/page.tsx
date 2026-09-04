@@ -6,10 +6,11 @@ import { Suspense, useState } from "react";
 import { Button, ButtonLink } from "@/components/button";
 import { LoadingState } from "@/components/loading-state";
 import { ProfileCard } from "@/components/profile-card";
+import { ProfileStatusPicker } from "@/components/profile-status-picker";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
 
 function ProfileContent() {
-  const { profile, loading, error } = useOwnedProfile();
+  const { profile, setProfile, loading, error, session } = useOwnedProfile();
   const params = useSearchParams();
   const [copied, setCopied] = useState(false);
   if (loading) return <LoadingState />;
@@ -47,6 +48,9 @@ function ProfileContent() {
           {profile.is_public && <ButtonLink href={`/u/${profile.username}`} variant="quiet"><Eye size={17} /> Preview</ButtonLink>}
         </div>
         <ProfileCard profile={profile} />
+        {session && (
+          <ProfileStatusPicker profile={profile} token={session.access_token} onChange={setProfile} />
+        )}
         <div className="owner-primary-action">
           {profile.is_public ? <Button onClick={() => void share()}><Share2 size={19} /> Share</Button> : <ButtonLink href="/profile/edit"><Globe2 size={19} /> Choose visibility</ButtonLink>}
         </div>

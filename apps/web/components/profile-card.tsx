@@ -2,6 +2,7 @@ import { Heart, MessageCircleMore, Sparkles } from "lucide-react";
 import type { Profile, ProfileInput } from "@sia/validation";
 import { getProfileCharacterOption } from "./profile-characters";
 import { getProfileTheme } from "./profile-themes";
+import { ProfileStatusPanel } from "./profile-status-panel";
 
 type DisplayProfile = Profile | ProfileInput;
 
@@ -9,6 +10,7 @@ export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { pro
   const theme = getProfileTheme(profile.profile_theme);
   const character = getProfileCharacterOption(profile.profile_character);
   const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
+  const status = "status" in profile ? profile.status : null;
   return (
     <article className={`profile-card profile-theme-${theme} ${compact ? "profile-card-compact" : ""}`}>
       <div className="profile-identity">
@@ -25,11 +27,15 @@ export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { pro
           <span className="profile-handle">@{profile.username}</span>
         </div>
       </div>
-      {profile.current_context && (
-        <section className="context-panel" aria-labelledby="current-heading">
-          <span className="context-icon"><Sparkles size={18} /></span>
-          <div><p id="current-heading">Right now</p><strong>{profile.current_context}</strong></div>
-        </section>
+      {status ? (
+        <ProfileStatusPanel status={status} />
+      ) : (
+        profile.current_context && (
+          <section className="context-panel" aria-labelledby="current-heading">
+            <span className="context-icon"><Sparkles size={18} /></span>
+            <div><p id="current-heading">Right now</p><strong>{profile.current_context}</strong></div>
+          </section>
+        )
       )}
       {profile.open_to.length > 0 && (
         <section className="profile-section open-section" aria-labelledby="open-heading">

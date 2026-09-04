@@ -960,3 +960,52 @@ body {
   .profile-theme-option { min-height: 58px; }
   .qr-card[class*="qr-theme-"] { padding-bottom: 27px; }
 }
+
+/* ---- Profile status --------------------------------------------------- */
+/* Colour carries the state, the ring carries the time left. */
+.status-panel { --status-accent: var(--brand-dark); --status-soft: var(--brand-soft); }
+.status-panel-open { --status-accent: var(--success); --status-soft: var(--success-soft); }
+.status-panel-around { --status-accent: var(--brand-dark); --status-soft: var(--brand-soft); }
+.status-panel-focused { --status-accent: #a8613a; --status-soft: #f4e5da; }
+
+.status-panel { margin-top: 30px; padding: 15px 17px; display: flex; align-items: center; gap: 13px; background: var(--status-soft); border-radius: 16px; }
+.status-icon { flex: 0 0 auto; width: 35px; height: 35px; border-radius: 50%; display: grid; place-items: center; color: var(--status-accent); background: rgba(255,255,255,.72); }
+.status-body { flex: 1 1 auto; min-width: 0; }
+.status-panel p { margin: 0 0 2px; color: var(--status-accent); font-size: 12px; font-weight: 760; letter-spacing: .08em; text-transform: uppercase; }
+.status-panel strong { display: block; font-size: 17px; line-height: 1.35; }
+.status-remaining { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.status-remaining small { color: var(--status-accent); font-size: 11px; font-weight: 650; }
+.status-ring { transform: rotate(-90deg); }
+.status-ring-track { stroke: rgba(255,255,255,.75); }
+.status-ring-value { stroke: var(--status-accent); transition: stroke-dasharray .6s ease; }
+
+.status-picker { margin-top: 26px; padding: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); }
+.status-picker h2 { margin: 0; font-family: var(--font-serif); font-size: 25px; font-weight: 560; }
+.status-picker-note { margin: 4px 0 18px; color: var(--muted); font-size: 14px; }
+.status-choices { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+.status-choice { min-height: 104px; padding: 13px 7px; display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 18px; background: white; cursor: pointer; transition: border-color .18s ease, background .18s ease; }
+.status-choice:hover:not(:disabled) { border-color: #c9d3e9; }
+.status-choice:disabled { cursor: not-allowed; opacity: .6; }
+.status-choice strong { font-size: 15px; font-weight: 650; }
+.status-choice small { color: var(--muted); font-size: 12px; text-align: center; }
+.status-choice-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); background: var(--surface-muted); }
+.status-choice-open.status-choice-selected { border-color: var(--success); background: var(--success-soft); }
+.status-choice-open.status-choice-selected .status-choice-icon { color: var(--success); background: white; }
+.status-choice-around.status-choice-selected { border-color: var(--brand); background: var(--brand-soft); }
+.status-choice-around.status-choice-selected .status-choice-icon { color: var(--brand-dark); background: white; }
+.status-choice-focused.status-choice-selected { border-color: #a8613a; background: #f4e5da; }
+.status-choice-focused.status-choice-selected .status-choice-icon { color: #a8613a; background: white; }
+.status-choice-off.status-choice-selected { border-color: #b9b4ad; background: var(--surface-muted); }
+.status-choice-off.status-choice-selected .status-choice-icon { color: var(--ink); background: white; }
+
+.status-duration { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--border); }
+.status-duration-label { display: inline-flex; align-items: center; gap: 7px; margin-bottom: 10px; color: var(--muted); font-size: 12px; font-weight: 750; letter-spacing: .13em; text-transform: uppercase; }
+.status-duration-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.status-detail { display: block; margin-top: 18px; }
+.status-detail > span { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; font-weight: 650; }
+.status-detail > span small { color: var(--muted); font-size: 12px; font-weight: 400; }
+
+@media (max-width: 620px) {
+  .status-choices { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .status-picker { padding: 20px 16px; }
+}

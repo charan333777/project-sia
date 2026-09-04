@@ -1,10 +1,11 @@
 import postgres, { type Sql } from "postgres";
 import type { ProfileInput, StoredProfile } from "@sia/validation";
-import type { ProfileRepository } from "./profile-repository.js";
+import type { ProfileRepository, ProfileStatusPatch } from "./profile-repository.js";
 
-type ProfileRow = Omit<StoredProfile, "created_at" | "updated_at"> & {
+type ProfileRow = Omit<StoredProfile, "created_at" | "updated_at" | "status_expires_at"> & {
   created_at: Date;
   updated_at: Date;
+  status_expires_at: Date | null;
 };
 
 function serialize(row: ProfileRow): StoredProfile {
@@ -12,6 +13,7 @@ function serialize(row: ProfileRow): StoredProfile {
     ...row,
     created_at: row.created_at.toISOString(),
     updated_at: row.updated_at.toISOString(),
+    status_expires_at: row.status_expires_at ? row.status_expires_at.toISOString() : null,
   };
 }
 
@@ -63,6 +65,20 @@ export class PostgresProfileRepository implements ProfileRepository {
         is_public = ${input.is_public},
         profile_theme = ${input.profile_theme},
         profile_character = ${input.profile_character},
+        updated_at = now()
+      WHERE user_id = ${userId}
+      RETURNING *
+    `;
+    return row ? serialize(row) : null;
+  }
+
+  async updateStatus(userId: string, patch: ProfileStatusPatch): Promise<StoredProfile | null> {
+    const [row] = await this.sql<ProfileRow[]>`
+      UPDATE profiles SET
+        status_state = ${patch.state},
+        status_duration = ${patch.duration},
+        status_expires_at = ${patch.expiresAt},
+        current_context = COALESCE(${patch.detail ?? null}, current_context),
         updated_at = now()
       WHERE user_id = ${userId}
       RETURNING *

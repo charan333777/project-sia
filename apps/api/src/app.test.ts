@@ -11,7 +11,7 @@ import type {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AuthProvider } from "./auth/auth-provider.js";
 import { buildApp } from "./app.js";
-import type { ProfileRepository } from "./repositories/profile-repository.js";
+import type { ProfileRepository, ProfileStatusPatch } from "./repositories/profile-repository.js";
 import type { NearbyRepository } from "./repositories/nearby-repository.js";
 import type { ProfilePhotoStorage, ProfilePhotoType } from "./services/profile-photo-storage.js";
 
@@ -29,7 +29,17 @@ class MemoryProfiles implements ProfileRepository {
       throw Object.assign(new Error("duplicate"), { code: "23505" });
     }
     const now = new Date().toISOString();
-    const profile = { ...input, id: randomUUID(), user_id: userId, avatar_path: null, created_at: now, updated_at: now };
+    const profile: StoredProfile = {
+      ...input,
+      id: randomUUID(),
+      user_id: userId,
+      avatar_path: null,
+      status_state: "off",
+      status_duration: null,
+      status_expires_at: null,
+      created_at: now,
+      updated_at: now,
+    };
     this.records.push(profile);
     return profile;
   }
@@ -56,6 +66,22 @@ class MemoryProfiles implements ProfileRepository {
     if (index < 0) return null;
     const existing = this.records[index]!;
     const updated = { ...existing, avatar_path: avatarPath, updated_at: new Date().toISOString() };
+    this.records[index] = updated;
+    return updated;
+  }
+
+  async updateStatus(userId: string, patch: ProfileStatusPatch) {
+    const index = this.records.findIndex((profile) => profile.user_id === userId);
+    if (index < 0) return null;
+    const existing = this.records[index]!;
+    const updated: StoredProfile = {
+      ...existing,
+      status_state: patch.state,
+      status_duration: patch.duration,
+      status_expires_at: patch.expiresAt ? patch.expiresAt.toISOString() : null,
+      current_context: patch.detail ?? existing.current_context,
+      updated_at: new Date().toISOString(),
+    };
     this.records[index] = updated;
     return updated;
   }
@@ -229,6 +255,104 @@ describe("profile API", () => {
 
     const hiddenAgain = await app.inject({ method: "DELETE", url: "/api/v1/nearby/presence", headers });
     expect(hiddenAgain.json().data.presence.active).toBe(false);
+  });
+
+  it("sets a status with a server-derived expiry and clears it again", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    const before = Date.now();
+    const set = await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers,
+      payload: { state: "open", duration: "1h", detail: "At the design meetup" },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json().data.status).toMatchObject({ state: "open", duration: "1h", detail: "At the design meetup" });
+
+    // The expiry is derived from the duration on the server, not sent by the client.
+    const expiresAt = new Date(set.json().data.status.expires_at).getTime();
+    expect(expiresAt).toBeGreaterThanOrEqual(before + 59 * 60_000);
+    expect(expiresAt).toBeLessThanOrEqual(Date.now() + 61 * 60_000);
+
+    const cleared = await app.inject({ method: "DELETE", url: "/api/v1/profiles/me/status", headers });
+    expect(cleared.json().data.status).toBeNull();
+    expect(cleared.json().data.status_state).toBe("off");
+  });
+
+  it("ignores a client-supplied expiry", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    const forged = new Date(Date.now() + 400 * 24 * 60 * 60_000).toISOString();
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers,
+      payload: { state: "open", duration: "30m", status_expires_at: forged, expires_at: forged },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().data.status.expires_at).not.toBe(forged);
+    expect(new Date(response.json().data.status.expires_at).getTime()).toBeLessThan(Date.now() + 31 * 60_000);
+  });
+
+  it("never presents an expired status as live, on the owner or the public profile", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers,
+      payload: { state: "focused", duration: "30m", detail: "Heads down" },
+    });
+
+    // Age the stored row past its expiry, exactly as the clock would.
+    const stored = repository.records[0]!;
+    stored.status_expires_at = new Date(Date.now() - 60_000).toISOString();
+
+    const mine = await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers });
+    expect(mine.json().data.status).toBeNull();
+    expect(mine.json().data.status_state).toBe("off");
+    expect(mine.json().data.status_expires_at).toBeNull();
+
+    const publicView = await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" });
+    expect(publicView.json().data.status).toBeNull();
+    expect(publicView.json().data.status_state).toBe("off");
+  });
+
+  it("rejects an active status without a duration, and an unknown state", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    const noDuration = await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers,
+      payload: { state: "open" },
+    });
+    expect(noDuration.statusCode).toBe(400);
+    expect(noDuration.json().error.code).toBe("VALIDATION_ERROR");
+
+    const unknownState = await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers,
+      payload: { state: "busy", duration: "1h" },
+    });
+    expect(unknownState.statusCode).toBe(400);
+  });
+
+  it("requires a profile before a status can be set", async () => {
+    const response = await app.inject({
+      method: "PUT",
+      url: "/api/v1/profiles/me/status",
+      headers: { authorization: "Bearer valid" },
+      payload: { state: "around", duration: "3h" },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error.code).toBe("PROFILE_NOT_FOUND");
   });
 
   it("rejects unapproved free-form Nearby messages", async () => {

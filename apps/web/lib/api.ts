@@ -11,6 +11,7 @@ import type {
   NearbySnapshot,
   Profile,
   ProfileInput,
+  ProfileStatusInput,
   ProfileUpdate,
 } from "@sia/validation";
 
@@ -51,6 +52,10 @@ export const api = {
   getMyProfile: (token: string) => request<Profile>("/profiles/me", {}, token),
   updateProfile: (input: ProfileUpdate, token: string) =>
     request<Profile>("/profiles/me", { method: "PATCH", body: JSON.stringify(input) }, token),
+  setProfileStatus: (input: ProfileStatusInput, token: string) =>
+    request<Profile>("/profiles/me/status", { method: "PUT", body: JSON.stringify(input) }, token),
+  clearProfileStatus: (token: string) =>
+    request<Profile>("/profiles/me/status", { method: "DELETE" }, token),
   uploadProfilePhoto: (file: Blob, token: string) => {
     const form = new FormData();
     form.append("photo", file, "profile-photo.webp");

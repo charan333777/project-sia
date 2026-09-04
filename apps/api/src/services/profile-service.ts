@@ -1,4 +1,15 @@
-import { profileInputSchema, profileUpdateSchema, type Profile, type ProfileInput, type ProfileUpdate, type StoredProfile } from "@sia/validation";
+import {
+  profileInputSchema,
+  profileStatusExpiry,
+  profileStatusInputSchema,
+  profileUpdateSchema,
+  resolveProfileStatus,
+  type Profile,
+  type ProfileInput,
+  type ProfileStatusInput,
+  type ProfileUpdate,
+  type StoredProfile,
+} from "@sia/validation";
 import { AppError, profileNotFound } from "../errors.js";
 import type { ProfileRepository } from "../repositories/profile-repository.js";
 import {
@@ -18,7 +29,7 @@ export class ProfileService {
     private readonly photos?: ProfilePhotoStorage,
   ) {}
 
-  private async withPhotoUrl(profile: StoredProfile): Promise<Profile> {
+  private async present(profile: StoredProfile): Promise<Profile> {
     let avatarUrl: string | null = null;
     if (profile.avatar_path && this.photos) {
       try {
@@ -27,7 +38,17 @@ export class ProfileService {
         // A storage outage should not make the rest of a profile unavailable.
       }
     }
-    return { ...profile, avatar_url: avatarUrl };
+    // An expired status is presented as no status at all, and the stored columns are
+    // normalised with it so no caller can read a live-looking state off a stale row.
+    const status = resolveProfileStatus(profile);
+    return {
+      ...profile,
+      status_state: status ? profile.status_state : "off",
+      status_duration: status ? profile.status_duration : null,
+      status_expires_at: status ? profile.status_expires_at : null,
+      avatar_url: avatarUrl,
+      status,
+    };
   }
 
   async create(userId: string, rawInput: ProfileInput) {
@@ -36,7 +57,7 @@ export class ProfileService {
       throw new AppError(409, "PROFILE_EXISTS", "You already have a Sia profile.");
     }
     try {
-      return await this.withPhotoUrl(await this.profiles.create(userId, input));
+      return await this.present(await this.profiles.create(userId, input));
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new AppError(409, "USERNAME_TAKEN", "That username is already in use.");
@@ -48,13 +69,13 @@ export class ProfileService {
   async getMine(userId: string) {
     const profile = await this.profiles.findByUserId(userId);
     if (!profile) throw profileNotFound();
-    return await this.withPhotoUrl(profile);
+    return await this.present(profile);
   }
 
   async getPublic(username: string) {
     const profile = await this.profiles.findPublicByUsername(username);
     if (!profile) throw profileNotFound();
-    return await this.withPhotoUrl(profile);
+    return await this.present(profile);
   }
 
   async updateMine(userId: string, rawInput: ProfileUpdate) {
@@ -65,13 +86,41 @@ export class ProfileService {
     try {
       const updated = await this.profiles.update(userId, input);
       if (!updated) throw profileNotFound();
-      return await this.withPhotoUrl(updated);
+      return await this.present(updated);
     } catch (error) {
       if (isUniqueViolation(error)) {
         throw new AppError(409, "USERNAME_TAKEN", "That username is already in use.");
       }
       throw error;
     }
+  }
+
+  /**
+   * Sets or clears the owner's status. The expiry is derived here from the chosen
+   * duration — a client never states when its own status ends.
+   */
+  async setStatus(userId: string, rawInput: ProfileStatusInput) {
+    const input = profileStatusInputSchema.parse(rawInput);
+    const current = await this.profiles.findByUserId(userId);
+    if (!current) throw profileNotFound();
+
+    const patch =
+      input.state === "off"
+        ? { state: "off" as const, duration: null, expiresAt: null, detail: "" }
+        : {
+            state: input.state,
+            duration: input.duration,
+            expiresAt: profileStatusExpiry(input.duration),
+            detail: input.detail,
+          };
+
+    const updated = await this.profiles.updateStatus(userId, patch);
+    if (!updated) throw profileNotFound();
+    return await this.present(updated);
+  }
+
+  async clearStatus(userId: string) {
+    return await this.setStatus(userId, { state: "off" });
   }
 
   async uploadPhoto(userId: string, bytes: Buffer) {
@@ -99,16 +148,16 @@ export class ProfileService {
       throw profileNotFound();
     }
     if (current.avatar_path) await this.photos.remove(current.avatar_path).catch(() => undefined);
-    return await this.withPhotoUrl(updated);
+    return await this.present(updated);
   }
 
   async removePhoto(userId: string) {
     const current = await this.profiles.findByUserId(userId);
     if (!current) throw profileNotFound();
-    if (!current.avatar_path) return await this.withPhotoUrl(current);
+    if (!current.avatar_path) return await this.present(current);
     const updated = await this.profiles.updateAvatarPath(userId, null);
     if (!updated) throw profileNotFound();
     if (this.photos) await this.photos.remove(current.avatar_path).catch(() => undefined);
-    return await this.withPhotoUrl(updated);
+    return await this.present(updated);
   }
 }

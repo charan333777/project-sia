@@ -102,3 +102,5 @@ Before deploying, set `NEXT_PUBLIC_SITE_URL` to the final HTTPS origin. After th
 Sia V1 has no map tiles, exact public pins, permanent inbox, feed, friends, followers, push notifications, payments, AI, or admin dashboard. Customers can personalise their profile and QR card with an optional private-storage photo, colour theme, character, or simple initial; profiles are private by default, and one authenticated user can own one profile.
 
 See [local development](docs/development/local-development.md), [system architecture](docs/architecture/system.md), and the [API reference](docs/api/v1.md) for implementation details.
+
+Topic-by-topic implementation context, decisions, locations and validation results are kept in the [project records](docs/project-records/README.md).
