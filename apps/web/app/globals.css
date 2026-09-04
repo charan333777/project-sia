@@ -163,6 +163,13 @@ button { color: inherit; }
 .auth-tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 620; }
 .auth-tabs button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.07); }
 .auth-form .button { width: 100%; margin-top: 24px; }
+.auth-form .google-auth-button { margin-top: 0; border-color: #d8d4ce; background: white; box-shadow: 0 2px 8px rgba(48,43,38,.05); }
+.auth-form .google-auth-button:hover { border-color: #c4beb6; background: #fdfcfb; }
+.google-auth-button .spinner { border-color: rgba(79,109,171,.22); border-top-color: var(--brand-dark); }
+.google-mark { width: 19px; height: 19px; flex: 0 0 auto; }
+.auth-divider { margin: 19px 0 0; display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 11px; font-weight: 600; }
+.auth-divider::before, .auth-divider::after { height: 1px; flex: 1; background: var(--border); content: ""; }
+.auth-divider + .field { margin-top: 19px; }
 .auth-note { margin: 20px 0 0 !important; padding-top: 20px; border-top: 1px solid var(--border); text-align: center; font-size: 13px; }
 .config-message, .status-message { padding: 14px; border-radius: 11px; font-size: 14px; }
 .config-message { color: #755224; background: #f7edda; }

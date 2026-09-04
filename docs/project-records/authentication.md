@@ -1,6 +1,6 @@
 # Authentication and profile-draft handoff
 
-**Status:** Implemented for email and password
+**Status:** Implemented for email/password and Google OAuth
 
 **Last verified:** 2026-09-04
 
@@ -46,11 +46,12 @@ Implemented:
 - Sign-out
 - Forgotten-password email
 - Password update after opening the recovery link
+- Google sign-up and login through Supabase OAuth
 - Session observation and authenticated route redirection
 
 Not implemented:
 
-- Google or other social sign-in
+- Social providers other than Google
 - Magic-link login in the Sia interface
 - Multi-factor authentication
 - Account deletion
@@ -111,6 +112,16 @@ supabase.auth.signInWithPassword({ email, password })
 
 If sign-up immediately returns a session, the held draft is saved. If email confirmation is
 required, the page tells the person to confirm and return; the draft stays in browser storage.
+
+Google appears above the email form as the primary low-friction option. The login page calls:
+
+```text
+supabase.auth.signInWithOAuth({ provider: "google", redirectTo: <site>/login })
+```
+
+Google returns through Supabase's hosted callback and then redirects to `/login`. `AuthProvider`
+observes the restored Supabase session; the login page completes the same profile-draft and photo
+handoff used by email/password authentication before replacing the route with `/profile`.
 
 ## Password recovery
 
