@@ -56,11 +56,15 @@ PostGIS runs a 200 m search and the response contains only:
 - a **bearing sector** — one of eight 45° sectors,
 - a shared-interest count and the person's public summary fields.
 
+Expired presence, Waves, connections and meeting rows are swept at most once every 60 seconds
+rather than on every request. Reads filter on expiry themselves, so an unswept row is never
+returned; the sweep performs the erasure that backs the "location expires automatically" promise.
+
 A Wave carries one of six preset intentions. Acceptance creates a two-hour mutual connection, which
 can hold one Meet Card: a time within the next two hours plus a public-place label, followed by
 preset coordination statuses (`coming`, `here`, `five_minutes`, …). The web client watches position
-and refreshes presence roughly every 45 seconds while visible, and polls the snapshot every 8
-seconds.
+and refreshes presence roughly every 45 seconds while visible, and polls the snapshot every 8 seconds while something is happening, every 30 seconds on an empty
+radar, and not at all while the tab is hidden.
 
 ## Architecture in one screen
 
@@ -78,7 +82,9 @@ Fastify routes (apps/api/src/app.ts)
 
 Every route derives identity from the verified token; request bodies cannot assert a user. Errors go
 through one handler and return `{ "error": { "code", "message" } }`; successes return `{ "data": … }`.
-Helmet, CORS pinned to `WEB_ORIGIN`, and per-route rate limits are applied in `app.ts`.
+Helmet, CORS pinned to `WEB_ORIGIN`, and per-route rate limits are applied in `app.ts`. Rate limits
+are keyed on the token subject rather than the IP, because Sia is used in rooms where everyone
+shares one network.
 
 Details: [system architecture](../architecture/system.md), [backend architecture](../architecture/backend.md),
 [API reference](../api/v1.md).

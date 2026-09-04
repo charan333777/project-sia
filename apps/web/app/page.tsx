@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 const faqItems = [
   {
     question: "What is a Sia profile?",
-    answer: "A Sia is a lightweight digital profile that shows who you are, what you are interested in and what you are open to right now.",
+    answer: "A Sia is a lightweight personal profile that shows who you are, what you are interested in and what you are open to right now.",
   },
   {
     question: "Does someone need an app to view my profile?",
@@ -90,20 +90,20 @@ export default function HomePage() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <span className="eyebrow">Digital profiles for real-life connections</span>
+            <span className="eyebrow">Personal profiles for real-life connections</span>
             <h1>Make <em>hello</em> easier.</h1>
-            <p className="hero-lede">Create a personal digital profile and QR code that helps people know you in seconds.</p>
-            <div className="hero-actions">
+            <p className="hero-lede">Meet people more naturally with Sia. Connect nearby, introduce yourself your way and make conversations easier.</p>
+            <div className="hero-actions" data-nosnippet="">
               <ButtonLink href="/create">Create mine <ArrowRight size={18} /></ButtonLink>
               <ButtonLink href="#how-it-works" variant="secondary">See how <ArrowDown size={17} /></ButtonLink>
             </div>
-            <div className="trust-line" aria-label="Sia benefits">
+            <div className="trust-line" aria-label="Sia benefits" data-nosnippet="">
               <span>2 min</span>
               <span aria-hidden="true">·</span>
               <span>No app to scan</span>
             </div>
           </div>
-          <div className="hero-visual" aria-label="Example of a Sia profile">
+          <div className="hero-visual" aria-label="Example of a Sia profile" data-nosnippet="">
             <div className="hero-orbit" aria-hidden="true" />
             <article className="profile-card-mini">
               <div className="mini-top"><div className="mini-avatar">M</div><div><h2>Maya</h2><p>Product designer</p></div></div>

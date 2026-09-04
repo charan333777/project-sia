@@ -355,6 +355,29 @@ describe("profile API", () => {
     expect(response.json().error.code).toBe("PROFILE_NOT_FOUND");
   });
 
+  it("rate limits per signed-in user, not per shared network", async () => {
+    // A meetup is one wifi and one IP. An IP-keyed limiter would throttle the whole room as
+    // though it were a single person — exactly the situation Nearby is built for.
+    const jwtFor = (sub: string) => {
+      const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+      return `${part({ alg: "HS256", typ: "JWT" })}.${part({ sub })}.signature`;
+    };
+    const headersFor = (sub: string) => ({ authorization: `Bearer ${jwtFor(sub)}` });
+
+    // Spend the first person's whole per-minute budget from this IP.
+    const first = headersFor("person-a");
+    for (let index = 0; index < 100; index += 1) {
+      await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers: first });
+    }
+    const exhausted = await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers: first });
+    expect(exhausted.statusCode).toBe(429);
+    expect(exhausted.json().error.code).toBe("RATE_LIMITED");
+
+    // Someone else on the same wifi still gets their own budget.
+    const second = await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers: headersFor("person-b") });
+    expect(second.statusCode).toBe(401);
+  });
+
   it("rejects unapproved free-form Nearby messages", async () => {
     const response = await app.inject({
       method: "POST",

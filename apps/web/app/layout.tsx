@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   title: { default: siteConfig.title, template: "%s | Sia" },
   description: siteConfig.description,
   keywords: [
-    "digital profile",
+    "personal profile",
     "personal QR code",
     "networking profile",
     "digital introduction",

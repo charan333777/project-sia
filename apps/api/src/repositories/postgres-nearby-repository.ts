@@ -38,10 +38,25 @@ function profileFrom(row: ProfileColumns): NearbyProfileRecord {
   };
 }
 
+/**
+ * How often the expiry sweep is allowed to reach the database.
+ *
+ * Every read query filters expired rows out by itself (`visible_until > now()`,
+ * `expires_at > now()`), so an unpruned row is already invisible to callers. The sweep exists
+ * to erase it for real, which is a background concern rather than a per-request one — running
+ * it on every poll cost a six-round-trip write transaction per client per cadence.
+ */
+const PRUNE_INTERVAL_MS = 60_000;
+
 export class PostgresNearbyRepository implements NearbyRepository {
   private postgisSchemaPromise: Promise<string> | null = null;
+  private lastPrunedAt = 0;
+  private pruneInFlight: Promise<void> | null = null;
 
-  constructor(private readonly sql: Sql) {}
+  constructor(
+    private readonly sql: Sql,
+    private readonly pruneIntervalMs: number = PRUNE_INTERVAL_MS,
+  ) {}
 
   static connect(databaseUrl: string) {
     return new PostgresNearbyRepository(postgres(databaseUrl, { max: 10, idle_timeout: 20, connect_timeout: 10 }));
@@ -63,7 +78,29 @@ export class PostgresNearbyRepository implements NearbyRepository {
     return this.postgisSchemaPromise;
   }
 
+  /**
+   * Sweeps expired Nearby rows, at most once per `pruneIntervalMs` across all callers.
+   *
+   * Concurrent callers share the one in-flight sweep rather than queueing their own, so a burst
+   * of polls cannot stack write transactions. A failed sweep does not update the timestamp, so
+   * the next request retries it.
+   */
   async pruneExpired() {
+    if (Date.now() - this.lastPrunedAt < this.pruneIntervalMs) return;
+    if (this.pruneInFlight) return this.pruneInFlight;
+
+    this.pruneInFlight = this.sweepExpired()
+      .then(() => {
+        this.lastPrunedAt = Date.now();
+      })
+      .finally(() => {
+        this.pruneInFlight = null;
+      });
+
+    return this.pruneInFlight;
+  }
+
+  private async sweepExpired() {
     await this.sql.begin(async (transaction) => {
       await transaction`DELETE FROM public.nearby_presence WHERE visible_until <= now()`;
       await transaction`DELETE FROM public.nearby_signals WHERE expires_at <= now()`;

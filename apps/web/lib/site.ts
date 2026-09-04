@@ -2,10 +2,10 @@ const fallbackSiteUrl = "http://localhost:3000";
 
 export const siteConfig = {
   name: "Sia",
-  title: "Digital Profile & QR Code for Real-Life Connections | Sia",
+  title: "Personal Profiles, Nearby Connections & QR Codes | Sia",
   description:
-    "Create a personal digital profile and QR code that makes meeting, networking and starting real-life conversations easier.",
-  shortDescription: "A personal digital profile for easier real-life introductions.",
+    "Meet people more naturally with Sia. Connect nearby, introduce yourself your way and make conversations easier.",
+  shortDescription: "A personal profile for easier real-life introductions.",
   url: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? fallbackSiteUrl),
 } as const;
 

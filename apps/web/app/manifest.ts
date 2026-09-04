@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Sia — Make hello easier",
     short_name: "Sia",
-    description: "A personal digital profile for easier real-life introductions.",
+    description: "Meet people more naturally with Sia. Connect nearby, introduce yourself your way and make conversations easier.",
     start_url: "/",
     display: "standalone",
     background_color: "#f7f4ef",

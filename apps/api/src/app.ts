@@ -2,7 +2,7 @@ import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import multipart from "@fastify/multipart";
 import rateLimit from "@fastify/rate-limit";
-import Fastify from "fastify";
+import Fastify, { type FastifyRequest } from "fastify";
 import { ZodError } from "zod";
 import type { AuthProvider } from "./auth/auth-provider.js";
 import { AppError, unauthorized } from "./errors.js";
@@ -39,6 +39,36 @@ function bearerToken(header?: string) {
   return token;
 }
 
+function optionalBearerToken(header?: string) {
+  if (!header?.startsWith("Bearer ")) return null;
+  return header.slice(7).trim() || null;
+}
+
+/**
+ * Rate limiting counts per signed-in user, not per IP.
+ *
+ * Sia is used in rooms where everyone shares one network, so an IP bucket throttles a whole
+ * meetup as though it were a single person — the situation Nearby exists for. The `sub` claim
+ * is read for bucketing only and never trusted: routes still verify the token themselves, so a
+ * forged value changes which counter a request lands on and nothing else. Requests without a
+ * usable token fall back to the IP bucket, which keeps a ceiling on anonymous traffic.
+ */
+function rateLimitKey(request: FastifyRequest) {
+  const token = optionalBearerToken(request.headers.authorization);
+  const parts = token?.split(".");
+  if (parts?.length === 3) {
+    try {
+      const payload = JSON.parse(Buffer.from(parts[1]!, "base64url").toString("utf8")) as { sub?: unknown };
+      if (typeof payload.sub === "string" && payload.sub.length > 0 && payload.sub.length <= 64) {
+        return `u:${payload.sub}`;
+      }
+    } catch {
+      // Unparseable token — fall through to the IP bucket.
+    }
+  }
+  return `ip:${request.ip}`;
+}
+
 export async function buildApp(dependencies: AppDependencies) {
   const app = Fastify({ logger: dependencies.logger ?? false });
   const profiles = new ProfileService(dependencies.profileRepository, dependencies.profilePhotoStorage);
@@ -52,7 +82,7 @@ export async function buildApp(dependencies: AppDependencies) {
   await app.register(multipart, {
     limits: { files: 1, fileSize: MAX_PROFILE_PHOTO_BYTES },
   });
-  await app.register(rateLimit, { max: 100, timeWindow: "1 minute" });
+  await app.register(rateLimit, { max: 100, timeWindow: "1 minute", keyGenerator: rateLimitKey });
 
   app.addHook("onRequest", async (request, reply) => {
     if (request.url.startsWith("/api/v1/nearby")) {
@@ -192,6 +222,14 @@ export async function buildApp(dependencies: AppDependencies) {
     if (error instanceof AppError) {
       return reply.code(error.statusCode).send({
         error: { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) },
+      });
+    }
+    // @fastify/rate-limit throws a plain error carrying a status code rather than an AppError.
+    // Without this branch a throttled client is told the server broke, gets no signal to back
+    // off, and every throttle is logged as an unhandled fault.
+    if ((error as { statusCode?: unknown }).statusCode === 429) {
+      return reply.code(429).send({
+        error: { code: "RATE_LIMITED", message: "That’s a lot of requests. Give it a moment and try again." },
       });
     }
     request.log.error({ err: error }, "Unhandled request error");

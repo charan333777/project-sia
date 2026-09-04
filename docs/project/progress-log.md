@@ -46,6 +46,33 @@ high-contrast code with a clean quiet zone — mascot decoration sits outside th
 [design notes](../design/sia-elephant-qr-final-prototype.md). Migrations `…0002`, `…0003`, `…0004`.
 Commit `1c68f95`.
 
+## 2026-09-04 — Nearby load and throttling fixes
+
+Four changes found while estimating how many people can use Sia in one room at once.
+
+**The expiry sweep left the request path.** `pruneExpired` ran a four-DELETE write transaction on
+*every* Nearby poll — six sequential round trips holding a pooled connection, from every client
+every 8 seconds. Every read query already filters expired rows (`visible_until > now()`,
+`expires_at > now()`), so an unpruned row was never visible anyway; the sweep only performs the
+physical erasure. It now runs at most once every 60 seconds across all callers, with concurrent
+polls sharing one in-flight sweep and a failed sweep retried on the next request. This is the
+largest single capacity change: roughly 8 snapshots/second becomes roughly 40.
+
+**Rate limiting counts per user, not per IP.** The limiter keyed on `req.ip`, so a room sharing one
+wifi — the exact situation Nearby exists for — was throttled as though it were one person, breaking
+at about 14 people. It now keys on the token subject, falling back to IP when no token is present.
+
+**Throttled requests return 429 instead of 500.** `@fastify/rate-limit` throws a plain error
+carrying a status code, which the error handler did not recognise, so every throttle was answered
+with `INTERNAL_ERROR`, logged as an unhandled fault, and gave the client no reason to back off.
+
+**Nearby polls adaptively and pauses when hidden.** 8s while something is happening, 30s on an
+empty radar, and nothing at all in a backgrounded tab — there was no visibility handling before.
+
+`apps/api/src/repositories/postgres-nearby-repository.ts`, `apps/api/src/app.ts`,
+`apps/web/components/nearby-experience.tsx`. Load-test harness in
+`scripts/nearby-load-test.mjs` (refuses non-localhost targets without `--allow-remote`).
+
 ## 2026-09-04 — Profile status
 
 Replaced the open-ended "Right now" text box with a chosen **state** that expires by itself:

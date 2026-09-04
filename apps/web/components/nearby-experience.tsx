@@ -37,6 +37,10 @@ import { api } from "@/lib/api";
 import { Button } from "./button";
 import { Modal } from "./modal";
 
+/** Snapshot poll cadence: responsive while something is happening, quiet when the radar is empty. */
+const NEARBY_POLL_ACTIVE_MS = 8_000;
+const NEARBY_POLL_IDLE_MS = 30_000;
+
 const emptySnapshot: NearbySnapshot = {
   presence: { active: false, duration: null, visible_until: null },
   people: [],
@@ -223,13 +227,50 @@ export function NearbyExperience() {
     return () => { active = false; };
   }, [applySnapshot, profile, session, startSharing]);
 
+  // Poll fast only when something is actually happening, and not at all in a hidden tab.
+  // An empty radar refreshed every 8s was the single largest source of load on the API.
+  const nearbyIsBusy =
+    snapshot.presence.active ||
+    snapshot.people.length > 0 ||
+    snapshot.signals.length > 0 ||
+    snapshot.connections.length > 0;
+
   useEffect(() => {
     if (!session || !profile) return;
-    const poll = setInterval(() => {
+    const intervalMs = nearbyIsBusy ? NEARBY_POLL_ACTIVE_MS : NEARBY_POLL_IDLE_MS;
+    let poll: ReturnType<typeof setInterval> | null = null;
+
+    const fetchSnapshot = () => {
       void api.getNearby(session.access_token).then(applySnapshot).catch(() => undefined);
-    }, 8_000);
-    return () => clearInterval(poll);
-  }, [applySnapshot, profile, session]);
+    };
+
+    const start = () => {
+      if (poll !== null) return;
+      poll = setInterval(fetchSnapshot, intervalMs);
+    };
+
+    const stop = () => {
+      if (poll === null) return;
+      clearInterval(poll);
+      poll = null;
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        fetchSnapshot();
+        start();
+      } else {
+        stop();
+      }
+    };
+
+    if (document.visibilityState === "visible") start();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [applySnapshot, nearbyIsBusy, profile, session]);
 
   useEffect(() => clearTracking, [clearTracking]);
 
