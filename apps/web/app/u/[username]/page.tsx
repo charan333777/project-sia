@@ -58,6 +58,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   const { username } = await params;
   const profile = await loadProfile(username);
   const description = [profile.role, profile.bio].filter(Boolean).join(" — ") || `Meet ${profile.display_name} on Sia.`;
+  const publicLinks = profile.contact_items.filter((item) => item.type === "link").map((item) => item.value);
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "ProfilePage",
@@ -72,6 +73,8 @@ export default async function PublicProfilePage({ params }: PageProps) {
       ...(profile.role ? { jobTitle: profile.role } : {}),
       ...(description ? { description } : {}),
       ...(profile.interests.length > 0 ? { knowsAbout: profile.interests } : {}),
+      // Only published links reach the page, because the API already dropped the rest.
+      ...(publicLinks.length > 0 ? { sameAs: publicLinks } : {}),
     },
   };
   return (

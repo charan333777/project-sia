@@ -3,6 +3,7 @@ import {
   profileStatusExpiry,
   profileStatusInputSchema,
   profileUpdateSchema,
+  publicContactItems,
   resolveProfileStatus,
   type Profile,
   type ProfileInput,
@@ -51,6 +52,17 @@ export class ProfileService {
     };
   }
 
+  /**
+   * The one place a profile is narrowed for a stranger. Hidden contact details are
+   * dropped here rather than in the browser, so they never reach the page source, the
+   * JSON payload, the Open Graph image or a downloaded vCard. Every public read path
+   * goes through this — see `getPublic`, its only caller.
+   */
+  private async presentPublic(profile: StoredProfile): Promise<Profile> {
+    const presented = await this.present(profile);
+    return { ...presented, contact_items: publicContactItems(presented.contact_items) };
+  }
+
   async create(userId: string, rawInput: ProfileInput) {
     const input = profileInputSchema.parse(rawInput);
     if (await this.profiles.findByUserId(userId)) {
@@ -75,7 +87,7 @@ export class ProfileService {
   async getPublic(username: string) {
     const profile = await this.profiles.findPublicByUsername(username);
     if (!profile) throw profileNotFound();
-    return await this.present(profile);
+    return await this.presentPublic(profile);
   }
 
   async updateMine(userId: string, rawInput: ProfileUpdate) {

@@ -29,10 +29,10 @@ export class PostgresProfileRepository implements ProfileRepository {
   async create(userId: string, input: ProfileInput): Promise<StoredProfile> {
     const [row] = await this.sql<ProfileRow[]>`
       INSERT INTO profiles (
-        user_id, username, display_name, role, bio, current_context, interests, open_to, is_public, profile_theme, profile_character
+        user_id, username, display_name, role, bio, current_context, interests, open_to, is_public, profile_theme, profile_character, contact_items
       ) VALUES (
         ${userId}, ${input.username}, ${input.display_name}, ${input.role}, ${input.bio},
-        ${input.current_context}, ${this.sql.array(input.interests)}, ${this.sql.array(input.open_to)}, ${input.is_public}, ${input.profile_theme}, ${input.profile_character}
+        ${input.current_context}, ${this.sql.array(input.interests)}, ${this.sql.array(input.open_to)}, ${input.is_public}, ${input.profile_theme}, ${input.profile_character}, ${this.sql.json(input.contact_items)}
       )
       RETURNING *
     `;
@@ -65,6 +65,7 @@ export class PostgresProfileRepository implements ProfileRepository {
         is_public = ${input.is_public},
         profile_theme = ${input.profile_theme},
         profile_character = ${input.profile_character},
+        contact_items = ${this.sql.json(input.contact_items)},
         updated_at = now()
       WHERE user_id = ${userId}
       RETURNING *

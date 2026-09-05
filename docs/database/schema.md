@@ -21,9 +21,15 @@ The versioned schema is maintained in `supabase/migrations/`.
 | `status_state` | text | One of `open`, `around`, `focused`, or `off`; defaults to `off` |
 | `status_duration` | text | One of `30m`, `1h`, `3h`, `8h`; null when the state is `off` |
 | `status_expires_at` | timestamptz | When the status stops being shown; null when the state is `off` |
+| `contact_items` | jsonb | Up to 8 contact details, each `{ type, label, value, is_public }`; defaults to `[]` |
 | `avatar_path` | text | Nullable path to a private Supabase Storage object |
 | `created_at` | timestamptz | Creation time |
 | `updated_at` | timestamptz | Last API update time |
+
+`contact_items` carries its own visibility per entry. The column is a plain jsonb array with a
+check constraint on shape and length; the authoritative rules — allowed types, the http/https
+protocol allowlist, and per-entry `is_public` — live in `@sia/validation`, and the API filters the
+array before a public profile leaves the server.
 
 A paired check constraint keeps status coherent: `off` carries neither a duration nor an expiry, and any other state carries both. Expiry is additionally enforced on read — the API resolves a status against the clock before returning it, so a row that has run out is never presented as live.
 

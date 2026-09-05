@@ -34,6 +34,7 @@ class MemoryProfiles implements ProfileRepository {
       id: randomUUID(),
       user_id: userId,
       avatar_path: null,
+      contact_items: input.contact_items ?? [],
       status_state: "off",
       status_duration: null,
       status_expires_at: null,
@@ -133,6 +134,7 @@ const input = {
   is_public: true,
   profile_theme: "calm" as const,
   profile_character: "elephant" as const,
+  contact_items: [],
 };
 
 describe("profile API", () => {
@@ -178,6 +180,51 @@ describe("profile API", () => {
     const response = await app.inject({ method: "GET", url: "/api/v1/public/profiles/ZACH" });
     expect(response.statusCode).toBe(200);
     expect(response.json().data.display_name).toBe("Zach");
+  });
+
+  it("keeps hidden contact details out of a public profile entirely", async () => {
+    const headers = { authorization: "Bearer valid" };
+    const contact_items = [
+      { type: "link", label: "LinkedIn", value: "https://linkedin.com/in/zach", is_public: true },
+      { type: "phone", label: "Mobile", value: "+44 7700 900123", is_public: false },
+      { type: "email", label: "Personal", value: "zach@example.com", is_public: false },
+    ];
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: { ...input, contact_items } });
+
+    const mine = await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers });
+    expect(mine.json().data.contact_items).toHaveLength(3);
+
+    const scanned = await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" });
+    const published = scanned.json().data.contact_items;
+    expect(published).toEqual([
+      { type: "link", label: "LinkedIn", value: "https://linkedin.com/in/zach", is_public: true },
+    ]);
+    // The hidden values must be absent from the payload, not merely unrendered.
+    expect(scanned.payload).not.toContain("7700 900123");
+    expect(scanned.payload).not.toContain("zach@example.com");
+  });
+
+  it("refuses a contact link that is not http or https", async () => {
+    const headers = { authorization: "Bearer valid" };
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/v1/profiles",
+      headers,
+      payload: { ...input, contact_items: [{ type: "link", value: "javascript:alert(1)", is_public: true }] },
+    });
+    expect(response.statusCode).toBe(400);
+  });
+
+  it("does not publish a contact detail added without an explicit choice", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({
+      method: "POST",
+      url: "/api/v1/profiles",
+      headers,
+      payload: { ...input, contact_items: [{ type: "phone", value: "+44 7700 900123" }] },
+    });
+    const scanned = await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" });
+    expect(scanned.json().data.contact_items).toEqual([]);
   });
 
   it("returns a friendly 404 for a missing public profile", async () => {

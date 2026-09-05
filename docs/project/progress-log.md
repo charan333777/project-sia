@@ -3,6 +3,39 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-05 — The contact card
+
+A scanned Sia now answers "how do I reach this person?". A profile carries up to eight contact
+details — links, emails and phone numbers — and the public card renders them under **Reach me**,
+each with a copy button, plus **Save contact**, which builds a vCard in the browser so the scanner
+can drop the person straight into their phone. That makes the QR useful outside an event: at a
+conference, while travelling, or any time the card is shown instead of a number being dictated.
+
+**Storing a detail and publishing it are separate decisions.** Every entry carries its own
+`is_public`, defaulting to false, so adding a phone number never publishes it as a side effect. The
+filter is applied server-side in `ProfileService.presentPublic`, the sole caller being `getPublic`
+— the one public read path. A hidden detail is therefore absent from the API response rather than
+present-but-unrendered, which is what keeps it out of the page source, the JSON payload, the Open
+Graph image and the downloaded vCard alike. `ProfileCard` filters a second time so the builder
+preview shows the owner exactly what a scanner would see.
+
+Links are normalised to absolute URLs and restricted to `http`/`https` by a protocol allowlist
+rather than a pattern, so no encoding of `javascript:` or `data:` gets through. Embedded credentials
+are stripped, because `https://linkedin.com@evil.example` reads as a trusted host to someone who
+just scanned a code in person. Rendered links carry `rel="noopener noreferrer nofollow"`. Published
+links also populate `sameAs` in the existing `ProfilePage` JSON-LD.
+
+Stored as one jsonb array rather than a column per contact type, so supporting a new kind of detail
+later is a validation change instead of another migration.
+
+Migration `202609050001_add_profile_contact_items.sql`, `packages/validation/src/profile.ts`,
+`apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`,
+`apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts`.
+
+Not built: a third "visible to signed-in scanners only" tier. Deliberate — it is the right answer
+for a phone number eventually, but it doubles the states to explain and test, and binary
+public/hidden is the honest first version.
+
 ## 2026-09-05 — The QR page leads with the code
 
 The owner's QR page rendered the whole "Make it yours" panel permanently between the card and the

@@ -75,6 +75,118 @@ const tagsSchema = (label: string) =>
     .max(10, `Choose up to 10 ${label.toLowerCase()}.`)
     .transform((values) => Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))));
 
+export const contactItemTypes = ["link", "email", "phone"] as const;
+export type ContactItemType = (typeof contactItemTypes)[number];
+
+/** A scannable card, not a link tree. */
+export const maxContactItems = 8;
+
+const contactLinkProtocols = new Set(["http:", "https:"]);
+
+/**
+ * Accepts what people actually type ("siaqr.com", "www.example.com/me") and returns a
+ * canonical absolute URL, or `null` when the value cannot be a safe public link.
+ *
+ * `javascript:` and `data:` are rejected by the protocol allowlist rather than by a
+ * pattern, so no encoding trick gets past it. Embedded credentials are stripped because
+ * `https://linkedin.com@evil.example` reads as a trusted host to a person scanning a code.
+ */
+export function normalizeContactUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const hasScheme = /^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed);
+  let url: URL;
+  try {
+    url = new URL(hasScheme ? trimmed : `https://${trimmed}`);
+  } catch {
+    return null;
+  }
+  if (!contactLinkProtocols.has(url.protocol)) return null;
+  // A public link needs a real registrable host, which also rules out `http://localhost`.
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(url.hostname)) return null;
+  url.username = "";
+  url.password = "";
+  return url.toString();
+}
+
+/** Keeps the shape a person typed, once it is plausibly dialable. */
+export function normalizeContactPhone(value: string): string | null {
+  const trimmed = value.trim().replace(/\s+/g, " ");
+  if (!/^\+?[0-9(][0-9 ()./-]{4,30}$/.test(trimmed)) return null;
+  const digits = trimmed.replace(/\D/g, "");
+  // E.164 allows at most 15 digits; anything shorter than 5 is not a number.
+  if (digits.length < 5 || digits.length > 15) return null;
+  return trimmed;
+}
+
+const contactLabelSchema = z.string().trim().max(40, "Label must be 40 characters or fewer.").default("");
+
+const contactValueSchema = (
+  max: number,
+  label: string,
+  normalize: (value: string) => string | null,
+  message: string,
+) =>
+  z
+    .string()
+    .trim()
+    .min(1, `${label} cannot be empty.`)
+    .max(max, `${label} must be ${max} characters or fewer.`)
+    .transform((value, ctx) => {
+      const normalized = normalize(value);
+      if (normalized === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message });
+        return z.NEVER;
+      }
+      return normalized;
+    });
+
+/**
+ * One contact detail. `is_public` defaults to false so that adding a phone number can
+ * never publish it as a side effect — showing it is always a second, deliberate act.
+ */
+export const contactItemSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("link"),
+    label: contactLabelSchema,
+    value: contactValueSchema(300, "Link", normalizeContactUrl, "Enter a web address, like https://example.com."),
+    is_public: z.boolean().default(false),
+  }),
+  z.object({
+    type: z.literal("email"),
+    label: contactLabelSchema,
+    value: z
+      .string()
+      .trim()
+      .min(1, "Email cannot be empty.")
+      .max(254, "Email must be 254 characters or fewer.")
+      .email("Enter a valid email address."),
+    is_public: z.boolean().default(false),
+  }),
+  z.object({
+    type: z.literal("phone"),
+    label: contactLabelSchema,
+    value: contactValueSchema(32, "Phone number", normalizeContactPhone, "Enter a valid phone number."),
+    is_public: z.boolean().default(false),
+  }),
+]);
+
+export type ContactItem = z.infer<typeof contactItemSchema>;
+
+const contactItemsSchema = z
+  .array(contactItemSchema)
+  .max(maxContactItems, `Add up to ${maxContactItems} contact details.`)
+  .default([]);
+
+/**
+ * The single rule for what a scanner may see. The API applies this before a public
+ * profile leaves the server — a hidden detail is absent from the response, not merely
+ * unrendered, so it never reaches the page source, the OG image or the vCard.
+ */
+export function publicContactItems(items: readonly ContactItem[]): ContactItem[] {
+  return items.filter((item) => item.is_public);
+}
+
 export const profileInputSchema = z.object({
   username: usernameSchema,
   display_name: z.string().trim().min(1, "Tell us what people should call you.").max(60),
@@ -86,6 +198,7 @@ export const profileInputSchema = z.object({
   is_public: z.boolean().default(false),
   profile_theme: z.enum(profileThemes).default("calm"),
   profile_character: z.enum(profileCharacters).default("plain"),
+  contact_items: contactItemsSchema,
 });
 
 export const profileUpdateSchema = profileInputSchema.partial();

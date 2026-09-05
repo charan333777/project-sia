@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { profileInputSchema, type Profile, type ProfileInput } from "@sia/validation";
 import { Button } from "./button";
+import { ContactItemsEditor } from "./contact-items-editor";
 import { TextAreaField, TextField } from "./field";
 import { ProfileCard } from "./profile-card";
 import { ProfileCharacterPicker } from "./profile-character-picker";
@@ -38,6 +39,7 @@ export const emptyProfile: ProfileInput = {
   is_public: false,
   profile_theme: "calm",
   profile_character: "plain",
+  contact_items: [],
 };
 
 const interestSuggestions = ["AI", "Startups", "DevOps", "Photography", "Music", "Football", "Travel", "Design"];
@@ -357,6 +359,7 @@ export function ProfileForm({
             <div className="connect-fields">
               <TagPicker label="I’m into" helper="Pick a few." suggestions={interestSuggestions} value={value.interests} onChange={(nextValue) => set("interests", nextValue)} />
               <TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} />
+              <ContactItemsEditor value={value.contact_items} error={errors.contact_items} onChange={(nextValue) => set("contact_items", nextValue)} />
             </div>
           )}
           {step === 3 && <StyleFields value={value} set={set} avatarMode={avatar.avatarMode} photoPreviewUrl={avatar.previewUrl} photoError={errors.photo} onAvatarModeChange={(mode) => { avatar.setAvatarMode(mode); setErrors({}); }} onPhotoSelected={(photo) => { avatar.choosePhoto(photo); setErrors({}); }} onPhotoRemove={() => { avatar.removePhoto(); set("profile_character", "plain"); setErrors({}); }} />}
@@ -426,7 +429,7 @@ export function EditProfileForm({
       </details>
       <details className="edit-details">
         <summary><span><MessageCircleMore size={18} /> Connect</span><ChevronDown size={18} /></summary>
-        <div className="edit-details-body connect-fields"><TagPicker label="I’m into" helper="Pick a few." suggestions={interestSuggestions} value={value.interests} onChange={(nextValue) => set("interests", nextValue)} /><TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} /></div>
+        <div className="edit-details-body connect-fields"><TagPicker label="I’m into" helper="Pick a few." suggestions={interestSuggestions} value={value.interests} onChange={(nextValue) => set("interests", nextValue)} /><TagPicker label="Open to" helper="What feels welcome?" suggestions={openToSuggestions} value={value.open_to} onChange={(nextValue) => set("open_to", nextValue)} /><ContactItemsEditor value={value.contact_items} error={errors.contact_items} onChange={(nextValue) => set("contact_items", nextValue)} /></div>
       </details>
       <details className="edit-details">
         <summary><span><Palette size={18} /> Style</span><span className="visibility-summary">{avatar.avatarMode === "photo" ? "My photo" : avatar.avatarMode === "initial" ? "Initial" : getProfileCharacterOption(value.profile_character).label} · {profileThemeOptions.find((theme) => theme.id === getProfileTheme(value.profile_theme))?.label}</span><ChevronDown size={18} /></summary>

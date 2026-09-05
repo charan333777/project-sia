@@ -42,6 +42,7 @@ secrets are recorded here or anywhere in the repo.
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
 | Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists | `apps/web/lib/profile-photo-draft.ts`, `apps/web/app/login/page.tsx` |
 | QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx` |
+| Contact card | Done — up to 8 links/emails/phones, each published or hidden individually; copy and vCard export on the public card | `packages/validation/src/profile.ts`, `apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`, `apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts` |
 | Personalisation | Done — 4 themes (calm/warm/bold/play), 5 characters (plain/puppy/elephant/panda/play) | `apps/web/components/profile-themes.ts`, `apps/web/components/profile-characters.ts`, `apps/web/public/mascots/` |
 | Profile photos | Done — private bucket, file-signature check, EXIF/XMP/IPTC stripped server-side, 1-hour signed URLs | `apps/api/src/services/profile-photo-storage.ts` |
 | Nearby | Done — opt-in presence, 200 m PostGIS search, preset Waves, 2-hour connections, Meet Cards, blocks, reports | `apps/api/src/services/nearby-service.ts`, `apps/api/src/repositories/postgres-nearby-repository.ts`, `apps/web/components/nearby-experience.tsx` |
@@ -124,6 +125,12 @@ server-only credential. Columns and constraints: [database schema](../database/s
   mascots and colour are decoration outside the panel only — see
   [the QR prototype decision](../design/sia-elephant-qr-final-prototype.md).
 - `/nearby` is `noindex`; public profiles at `/u/:username` are indexable.
+- A contact detail is **stored and published separately**. `is_public` defaults to false on every
+  entry, and `getPublic` strips hidden ones before the profile leaves the API — so a hidden phone
+  number is absent from the response, not merely unrendered. Anything built on a public profile
+  (the card, the OG image, the JSON-LD, the vCard) inherits that filter by construction.
+- Contact links are **`http`/`https` only**, enforced by a protocol allowlist in `@sia/validation`
+  rather than a pattern, and rendered with `rel="noopener noreferrer nofollow"`.
 - The service role key never reaches the browser.
 
 ## Known gaps and loose ends

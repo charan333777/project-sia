@@ -1,7 +1,9 @@
 import { Heart, MessageCircleMore, Sparkles } from "lucide-react";
-import type { Profile, ProfileInput } from "@sia/validation";
+import { publicContactItems, type Profile, type ProfileInput } from "@sia/validation";
+import { absoluteUrl } from "@/lib/site";
 import { getProfileCharacterOption } from "./profile-characters";
 import { getProfileTheme } from "./profile-themes";
+import { ProfileContactPanel } from "./profile-contact-panel";
 import { ProfileStatusPanel } from "./profile-status-panel";
 
 type DisplayProfile = Profile | ProfileInput;
@@ -11,6 +13,10 @@ export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { pro
   const character = getProfileCharacterOption(profile.profile_character);
   const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
   const status = "status" in profile ? profile.status : null;
+  // A public profile arrives already filtered by the API. Filtering again here means the
+  // owner's own view and the live preview show exactly what a scanner would see, and no
+  // caller can accidentally render a hidden detail.
+  const contactItems = publicContactItems(profile.contact_items ?? []);
   return (
     <article className={`profile-card profile-theme-${theme} ${compact ? "profile-card-compact" : ""}`}>
       <div className="profile-identity">
@@ -50,6 +56,12 @@ export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { pro
           <div className="tag-list">{profile.interests.map((item) => <span className="interest-tag" key={item}>{item}</span>)}</div>
         </section>
       )}
+      <ProfileContactPanel
+        profile={{ display_name: profile.display_name, username: profile.username, role: profile.role, bio: profile.bio }}
+        items={contactItems}
+        profileUrl={absoluteUrl(`/u/${profile.username}`)}
+        compact={compact}
+      />
     </article>
   );
 }
