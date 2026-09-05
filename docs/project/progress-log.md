@@ -3,6 +3,25 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-05 — The QR page leads with the code
+
+The owner's QR page rendered the whole "Make it yours" panel permanently between the card and the
+actions. The personalisation controls were taller than the QR itself and pushed Full screen, Share
+and Save below the fold, so the page opened on pickers rather than on the thing it exists to show.
+
+The panel is now collapsed behind a fourth toolbox action, **Style**, and expands in place beneath
+it. Expanding scrolls it just into view; collapsing is the default on every visit. Character and
+colour mood are unchanged and still save immediately against the card above them, which is why the
+panel stays on this route instead of moving to `/profile/edit` — the live preview is the point.
+
+The toolbox went from three columns to four `minmax(0, 1fr)` ones, stacked icon-over-label at every
+width and dropping to 2x2 below 380px. `minmax(0, ...)` rather than plain `1fr` because a single
+long label would otherwise widen its own column and leave the row uneven.
+
+Public profiles at `/u/:username` never rendered this panel and are untouched.
+
+`apps/web/app/profile/qr/page.tsx`, `apps/web/app/globals.css`.
+
 ## 2026-09-03 — Search and social discoverability
 
 Full SEO pass so a shared Sia link previews well and the site can be indexed. Added canonical

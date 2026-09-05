@@ -448,8 +448,9 @@ body {
 .qr-shell { background: radial-gradient(circle at 50% 12%, rgba(232,237,248,.85), transparent 32rem); }
 .qr-card { width: min(100%, 470px); }
 .qr-code-wrap { padding: 10px; background: white; }
-.qr-toolbox { width: min(100%, 470px); margin-top: 16px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.qr-toolbox .button { padding-inline: 11px; }
+.qr-toolbox { width: min(100%, 470px); margin-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.qr-toolbox .button { min-width: 0; padding-inline: 8px; flex-direction: column; gap: 4px; font-size: 12px; }
+.qr-toolbox .button.qr-toolbox-open { border-color: var(--brand-dark); background: var(--brand-soft); color: var(--brand-dark); }
 .qr-actions { margin-top: 0; }
 #sia-qr-card:fullscreen { width: 100vw; height: 100vh; max-width: none; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 0; border-radius: 0; background: var(--surface); }
 #sia-qr-card:fullscreen .qr-code-wrap svg { width: min(58vh, 70vw); height: min(58vh, 70vw); }
@@ -499,11 +500,12 @@ body {
   .viral-card > span { font-size: 12px; }
   .viral-card .button { padding-inline: 9px; font-size: 13px; }
   .qr-card { padding-inline: 20px; }
-  .qr-toolbox { grid-template-columns: repeat(3, 1fr); }
-  .qr-toolbox .button { min-width: 0; padding-inline: 5px; flex-direction: column; gap: 3px; font-size: 11px; }
+  .qr-toolbox { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .qr-toolbox .button { padding-inline: 5px; gap: 3px; font-size: 11px; }
 }
 
 @media (max-width: 380px) {
+  .qr-toolbox { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .header-nav { gap: 7px; }
   .nav-link-icon span { font-size: 13px; }
   .profile-identity { gap: 12px; }
@@ -940,7 +942,8 @@ body {
 @keyframes personality-float { to { transform: translate3d(8px, 10px, 0) scale(1.04); } }
 #sia-qr-card:fullscreen { background: var(--personality-surface); }
 
-.qr-personality-panel { width: min(100%, 470px); margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 20px; background: rgba(255,253,252,.9); box-shadow: 0 10px 30px rgba(48,43,38,.05); }
+.qr-personality-panel { width: min(100%, 470px); margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 20px; background: rgba(255,253,252,.9); box-shadow: 0 10px 30px rgba(48,43,38,.05); animation: personality-reveal .18s ease-out; }
+@keyframes personality-reveal { from { opacity: 0; transform: translateY(-6px); } }
 .qr-personality-heading { margin-bottom: 11px; display: flex; align-items: center; gap: 9px; }
 .qr-personality-heading > span { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 50%; color: var(--brand-dark); background: var(--brand-soft); }
 .qr-personality-heading strong, .qr-personality-heading small { display: block; }

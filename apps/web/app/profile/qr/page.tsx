@@ -2,7 +2,7 @@
 
 import { ArrowLeft, Check, Download, Expand, LockKeyhole, Palette, Share2 } from "lucide-react";
 import type { Profile, ProfileCharacter, ProfileTheme } from "@sia/validation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/button";
 import { LoadingState } from "@/components/loading-state";
 import { ProfileCharacterPicker } from "@/components/profile-character-picker";
@@ -103,6 +103,11 @@ export default function QrPage() {
   const { profile, setProfile, loading, error, session } = useOwnedProfile();
   const [status, setStatus] = useState("");
   const [savingStyle, setSavingStyle] = useState(false);
+  const [customising, setCustomising] = useState(false);
+  const personalityPanel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (customising) personalityPanel.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [customising]);
   if (loading) return <LoadingState label="Preparing your QR…" />;
   if (error || !profile) return <div className="empty-state"><div><h1>We hit a snag.</h1><p>{error}</p></div></div>;
   if (!profile.is_public) return <main className="empty-state"><div><span className="empty-symbol"><LockKeyhole /></span><h1>Your Sia is private.</h1><p>Make it public before sharing.</p><ButtonLink href="/profile/edit">Choose visibility</ButtonLink></div></main>;
@@ -201,14 +206,16 @@ export default function QrPage() {
   return (
     <main className={`qr-shell qr-shell-theme-${getProfileTheme(profile.profile_theme)}`}>
       <QrViewer profile={profile} url={url} />
-      <section className="qr-personality-panel" aria-labelledby="qr-personality-heading">
-        <div className="qr-personality-heading"><span><Palette size={19} /></span><div><strong id="qr-personality-heading">Make it yours</strong><small>QR + profile</small></div></div>
-        <div className="qr-personality-control"><strong>Character</strong><small>{profile.avatar_url ? "Choosing one replaces your photo." : "Show your personality."}</small></div>
-        <ProfileCharacterPicker value={getProfileCharacter(profile.profile_character)} onChange={(character) => void chooseCharacter(character)} disabled={savingStyle} />
-        <div className="qr-personality-control"><strong>Colour mood</strong><small>Make the character feel like you.</small></div>
-        <ProfileThemePicker value={getProfileTheme(profile.profile_theme)} onChange={(theme) => void chooseTheme(theme)} disabled={savingStyle} />
-      </section>
-      <div className="qr-toolbox" aria-label="QR actions"><Button variant="secondary" onClick={() => void fullscreen()}><Expand size={17} /> Full screen</Button><Button variant="secondary" onClick={() => void share()}><Share2 size={17} /> Share</Button><Button variant="secondary" onClick={() => void download()}><Download size={17} /> Save</Button></div>
+      <div className="qr-toolbox" aria-label="QR actions"><Button variant="secondary" onClick={() => void fullscreen()}><Expand size={17} /> Full screen</Button><Button variant="secondary" onClick={() => void share()}><Share2 size={17} /> Share</Button><Button variant="secondary" onClick={() => void download()}><Download size={17} /> Save</Button><Button variant="secondary" className={customising ? "qr-toolbox-open" : ""} aria-expanded={customising} aria-controls="qr-personality" onClick={() => setCustomising((open) => !open)}><Palette size={17} /> Style</Button></div>
+      {customising && (
+        <section className="qr-personality-panel" id="qr-personality" ref={personalityPanel} aria-labelledby="qr-personality-heading">
+          <div className="qr-personality-heading"><span><Palette size={19} /></span><div><strong id="qr-personality-heading">Make it yours</strong><small>QR + profile</small></div></div>
+          <div className="qr-personality-control"><strong>Character</strong><small>{profile.avatar_url ? "Choosing one replaces your photo." : "Show your personality."}</small></div>
+          <ProfileCharacterPicker value={getProfileCharacter(profile.profile_character)} onChange={(character) => void chooseCharacter(character)} disabled={savingStyle} />
+          <div className="qr-personality-control"><strong>Colour mood</strong><small>Make the character feel like you.</small></div>
+          <ProfileThemePicker value={getProfileTheme(profile.profile_theme)} onChange={(theme) => void chooseTheme(theme)} disabled={savingStyle} />
+        </section>
+      )}
       <p className="copy-status" role="status">{status ? <><Check size={14} /> {status}</> : ""}</p>
       <div className="qr-actions"><ButtonLink href="/profile" variant="quiet"><ArrowLeft size={17} /> Profile</ButtonLink></div>
     </main>
