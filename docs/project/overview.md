@@ -137,8 +137,9 @@ server-only credential. Columns and constraints: [database schema](../database/s
 
 Facts, not recommendations:
 
-- No web-side component tests — `@sia/web`'s test script is `vitest run --passWithNoTests`. Coverage
-  today is validation schemas plus API route tests against fake providers.
+- Thin web-side coverage — `@sia/web` now runs `vitest run` against `lib/` helpers only; there are
+  still no component or rendering tests. Coverage elsewhere is validation schemas plus API route
+  tests against fake providers.
 - Root `CHANGELOG.md` still describes 1.0.0 only; it predates themes, characters, photos, Nearby and
   the SEO pass.
 - Empty leftover route folders: `apps/web/app/nearby-qa/` and `apps/web/app/qr-personality-demo/`.

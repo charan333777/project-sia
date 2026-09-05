@@ -7,7 +7,7 @@
     "prebuild": "pnpm --filter @sia/shared build && pnpm --filter @sia/validation build",
     "build": "next build",
     "start": "next start",
-    "test": "vitest run --passWithNoTests",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit"
   },

@@ -8,7 +8,7 @@ import { ProfileStatusPanel } from "./profile-status-panel";
 
 type DisplayProfile = Profile | ProfileInput;
 
-export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { profile: DisplayProfile; compact?: boolean; photoPreviewUrl?: string | null }) {
+export function ProfileCard({ profile, compact = false, owner = false, photoPreviewUrl }: { profile: DisplayProfile; compact?: boolean; owner?: boolean; photoPreviewUrl?: string | null }) {
   const theme = getProfileTheme(profile.profile_theme);
   const character = getProfileCharacterOption(profile.profile_character);
   const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
@@ -60,7 +60,7 @@ export function ProfileCard({ profile, compact = false, photoPreviewUrl }: { pro
         profile={{ display_name: profile.display_name, username: profile.username, role: profile.role, bio: profile.bio }}
         items={contactItems}
         profileUrl={absoluteUrl(`/u/${profile.username}`)}
-        compact={compact}
+        readOnly={compact || owner}
       />
     </article>
   );

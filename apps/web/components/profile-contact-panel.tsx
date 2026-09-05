@@ -33,13 +33,17 @@ export function ProfileContactPanel({
   profile,
   items,
   profileUrl,
-  compact = false,
+  readOnly = false,
 }: {
   profile: Pick<Profile, "display_name" | "username" | "role" | "bio">;
   items: readonly ContactItem[];
   profileUrl: string;
-  /** The builder preview shows what a scanner would see, without offering the actions. */
-  compact?: boolean;
+  /**
+   * Show what a scanner would see, without offering the actions — used by the builder
+   * preview and by the owner's own profile, where saving yourself to your own contacts
+   * and being told the card stays current are both nonsense.
+   */
+  readOnly?: boolean;
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [saveError, setSaveError] = useState("");
@@ -102,7 +106,7 @@ export function ProfileContactPanel({
                   {item.type === "link" ? <ArrowUpRight size={15} /> : <ChevronRight size={15} />}
                 </span>
               </a>
-              {!compact && (
+              {!readOnly && (
                 <button
                   type="button"
                   className="contact-copy-button"
@@ -116,7 +120,7 @@ export function ProfileContactPanel({
           );
         })}
       </ul>
-      {!compact && (
+      {!readOnly && (
         <>
           <button type="button" className="button button-secondary contact-save" onClick={saveContact}>
             <ContactRound size={16} /> Save contact

@@ -18,6 +18,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { profileInputSchema, type Profile, type ProfileInput } from "@sia/validation";
 import { Button } from "./button";
+import { fieldStep, pruneEmptyContactItems } from "@/lib/contact-items";
 import { ContactItemsEditor } from "./contact-items-editor";
 import { TextAreaField, TextField } from "./field";
 import { ProfileCard } from "./profile-card";
@@ -308,6 +309,15 @@ export function ProfileForm({
         return;
       }
     }
+    if (step === 2) {
+      const pruned = pruneEmptyContactItems(value);
+      if (pruned !== value) setValue(pruned);
+      const result = validationErrors(pruned);
+      if (result.errors.contact_items) {
+        setErrors({ contact_items: result.errors.contact_items });
+        return;
+      }
+    }
     if (step === 3 && avatar.avatarMode === "photo" && !avatar.previewUrl) {
       setErrors({ photo: "Take or choose a photo, or select another option." });
       return;
@@ -323,8 +333,18 @@ export function ProfileForm({
       setErrors({ visibility: "Choose who can see your Sia." });
       return;
     }
-    const result = validationErrors(value);
-    if (!result.data) { setErrors(result.errors); return; }
+    const pruned = pruneEmptyContactItems(value);
+    if (pruned !== value) setValue(pruned);
+    const result = validationErrors(pruned);
+    if (!result.data) {
+      setErrors(result.errors);
+      // The failing field may belong to an earlier step, where its message is rendered.
+      // Without this the submit button appears to do nothing at all.
+      const firstField = Object.keys(result.errors)[0];
+      const target = firstField === undefined ? undefined : fieldStep[firstField];
+      if (target !== undefined && target !== step) setStep(target);
+      return;
+    }
     setErrors({});
     void onSubmit(result.data, avatar.change);
   };
@@ -409,7 +429,9 @@ export function EditProfileForm({
       setErrors({ photo: "Take or choose a photo, or select another option." });
       return;
     }
-    const result = validationErrors(value);
+    const pruned = pruneEmptyContactItems(value);
+    if (pruned !== value) setValue(pruned);
+    const result = validationErrors(pruned);
     if (!result.data) { setErrors(result.errors); return; }
     setErrors({});
     void onSubmit(result.data, avatar.change);

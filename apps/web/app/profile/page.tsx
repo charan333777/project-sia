@@ -47,7 +47,7 @@ function ProfileContent() {
           <div><span className={`profile-status ${profile.is_public ? "profile-status-public" : "profile-status-private"}`}>{profile.is_public ? <Globe2 size={14} /> : <LockKeyhole size={14} />}{profile.is_public ? "Public" : "Private"}</span><h1>Your Sia</h1></div>
           {profile.is_public && <ButtonLink href={`/u/${profile.username}`} variant="quiet"><Eye size={17} /> Preview</ButtonLink>}
         </div>
-        <ProfileCard profile={profile} />
+        <ProfileCard profile={profile} owner />
         {session && (
           <ProfileStatusPicker profile={profile} token={session.access_token} onChange={setProfile} />
         )}

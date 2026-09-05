@@ -3,6 +3,29 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-05 — Signup dead end from an untouched contact row
+
+Reported after the contact card shipped: new signups could fail with no explanation.
+
+Tapping **+ Link** adds a blank row immediately, and the schema rightly refuses an empty value. The
+resulting error is keyed to `contact_items`, which the wizard renders on step 2 — but the person is
+on step 5 pressing **Create my Sia**. The message was set and never shown, so the button did
+nothing: no error, no navigation, no draft saved. A curious tap on the new control was enough to
+make a profile unsaveable, which is as bad as it sounds for a first-run experience.
+
+Two fixes, because either alone leaves a hole. Rows opened and never typed into are dropped before
+validation — an untouched row is an empty row, not a mistake. And a validation failure now sends the
+person to the step that renders the message, so the submit button can never again appear inert. A
+row carrying only a label is deliberately kept rather than silently discarded: someone meant
+something by it, and it should fail where they can see it.
+
+Both helpers moved to `apps/web/lib/contact-items.ts` so they could be tested, which makes this the
+first test coverage in `@sia/web` — its script was `vitest run --passWithNoTests` and is now
+`vitest run`. That absence is exactly why this reached production.
+
+`apps/web/lib/contact-items.ts`, `apps/web/lib/contact-items.test.ts`,
+`apps/web/components/profile-form.tsx`, `apps/web/package.json`.
+
 ## 2026-09-05 — Contact-card outage, and the fixes it prompted
 
 **The incident.** The contact-card code deployed ahead of its migration. Every stored profile came
