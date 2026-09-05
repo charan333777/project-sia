@@ -161,7 +161,7 @@ button { color: inherit; }
 .auth-card > p { margin: 0 0 25px; color: var(--muted); }
 .auth-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 24px; border-radius: 12px; background: var(--surface-muted); }
 .auth-tabs button { min-height: 40px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-weight: 620; }
-.auth-tabs button[aria-selected="true"] { background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+.auth-tabs button[aria-pressed="true"] { background: var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,.07); }
 .auth-form .button { width: 100%; margin-top: 24px; }
 .auth-form .google-auth-button { margin-top: 0; border-color: #d8d4ce; background: white; box-shadow: 0 2px 8px rgba(48,43,38,.05); }
 .auth-form .google-auth-button:hover { border-color: #c4beb6; background: #fdfcfb; }
@@ -212,12 +212,15 @@ button { color: inherit; }
 .contact-link { flex: 1 1 auto; min-width: 0; padding: 11px 13px; display: flex; align-items: center; gap: 11px; color: inherit; text-decoration: none; background: var(--surface-muted); border: 1px solid var(--border); border-radius: 14px; }
 .contact-link:hover { background: var(--brand-soft); border-color: #d3dcf0; }
 .contact-icon { flex: 0 0 auto; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; color: var(--brand-dark); background: rgba(255,255,255,.8); }
-.contact-copy { min-width: 0; display: flex; flex-direction: column; }
+.contact-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .contact-copy small { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
 .contact-copy strong { font-size: 15px; font-weight: 620; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-copy-button { flex: 0 0 auto; width: 44px; display: grid; place-items: center; color: var(--muted); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; }
 .contact-copy-button:hover { color: var(--brand-dark); border-color: #d3dcf0; background: var(--brand-soft); }
+.contact-go { flex: 0 0 auto; color: var(--muted); }
+.contact-link:hover .contact-go { color: var(--brand-dark); }
 .contact-save { width: 100%; margin-top: 12px; }
+.contact-note { margin: 9px 2px 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: center; }
 .contact-status { min-height: 20px; margin: 7px 0 0; color: var(--success); text-align: center; font-size: 13px; }
 
 .contact-editor { margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--border); }

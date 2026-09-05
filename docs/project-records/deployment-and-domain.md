@@ -38,7 +38,7 @@ GoDaddy DNS
 | --- | --- | --- |
 | GoDaddy | DNS authority for the Sia domain | `siaqr.com` |
 | Vercel | Builds and hosts the Next.js application | `https://siaqr.com` |
-| Render | Builds and runs the Fastify API container | `https://project-sia-w8sz.onrender.com/api/v1` |
+| Render | Builds and runs the Fastify API container | `https://project-sia-1.onrender.com/api/v1` |
 | Supabase | Auth, PostgreSQL/PostGIS and private Storage | Project reference recorded in [`docs/project/overview.md`](../project/overview.md) |
 | Resend | Delivers Supabase authentication email | `auth.siaqr.com` sending subdomain |
 | GitHub Actions | Verifies pushes and pull requests | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) |

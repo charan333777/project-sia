@@ -23,22 +23,23 @@ export function ContactItemsEditor({
   onChange,
   error,
 }: {
-  value: ContactItem[];
+  value: ContactItem[] | undefined;
   onChange: (next: ContactItem[]) => void;
   error?: string;
 }) {
-  const full = value.length >= maxContactItems;
+  const items = value ?? [];
+  const full = items.length >= maxContactItems;
 
   const add = (type: ContactItemType) => {
     if (full) return;
-    onChange([...value, { type, label: "", value: "", is_public: false } as ContactItem]);
+    onChange([...items, { type, label: "", value: "", is_public: false } as ContactItem]);
   };
 
   const patch = (index: number, next: Partial<ContactItem>) => {
-    onChange(value.map((item, position) => (position === index ? ({ ...item, ...next } as ContactItem) : item)));
+    onChange(items.map((item, position) => (position === index ? ({ ...item, ...next } as ContactItem) : item)));
   };
 
-  const remove = (index: number) => onChange(value.filter((_, position) => position !== index));
+  const remove = (index: number) => onChange(items.filter((_, position) => position !== index));
 
   return (
     <div className="contact-editor">
@@ -47,9 +48,9 @@ export function ContactItemsEditor({
         <small>Saved either way. Each one is hidden until you make it public.</small>
       </div>
 
-      {value.length > 0 && (
+      {items.length > 0 && (
         <ul className="contact-editor-list">
-          {value.map((item, index) => {
+          {items.map((item, index) => {
             const kind = kindOf(item.type);
             const Icon = kind.icon;
             return (

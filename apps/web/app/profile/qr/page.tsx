@@ -56,7 +56,11 @@ function addPosterCharacterFrame(poster: SVGElement, characterId: ProfileCharact
   appendSvgElement(poster, "ellipse", { cx: "945", cy: "570", rx: isPuppy ? "92" : "118", ry: isPuppy ? "205" : "222", fill, opacity: ".94", transform: `rotate(${isPuppy ? "-10" : "-4"} 945 570)` });
 }
 
-function buildQrPoster(profile: Profile, qr: SVGSVGElement, avatarDataUrl: string | null) {
+function readablePosterUrl(url: string) {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
+function buildQrPoster(profile: Profile, qr: SVGSVGElement, avatarDataUrl: string | null, url: string) {
   const themeId = getProfileTheme(profile.profile_theme);
   const theme = profileThemeOptions.find((option) => option.id === themeId) ?? profileThemeOptions[0]!;
   const character = getProfileCharacterOption(profile.profile_character);
@@ -95,7 +99,9 @@ function buildQrPoster(profile: Profile, qr: SVGSVGElement, avatarDataUrl: strin
   name.textContent = profile.display_name;
   const invitation = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1262" : "1172", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "38", "font-weight": "600", "text-anchor": "middle" });
   invitation.textContent = `Scan to meet ${profile.display_name}`;
-  appendSvgElement(poster, "circle", { cx: "540", cy: avatarDataUrl ? "1318" : "1265", r: "10", fill: theme.accent });
+  // The printed card is the case where a failed scan has no recourse at all.
+  const address = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1318" : "1265", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "30", "text-anchor": "middle", opacity: ".62" });
+  address.textContent = readablePosterUrl(url);
   return poster;
 }
 
@@ -148,7 +154,7 @@ export default function QrPage() {
       setStatus("Preparing card…");
       const avatarPath = profile.avatar_url ?? getProfileCharacterOption(profile.profile_character).imageSrc;
       const avatarDataUrl = avatarPath ? await imageAssetToDataUrl(avatarPath) : null;
-      const poster = buildQrPoster(profile, svg, avatarDataUrl);
+      const poster = buildQrPoster(profile, svg, avatarDataUrl, url);
       const source = new XMLSerializer().serializeToString(poster);
       const blob = new Blob([source], { type: "image/svg+xml;charset=utf-8" });
       const blobUrl = URL.createObjectURL(blob);

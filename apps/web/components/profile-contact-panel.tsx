@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, ContactRound, Globe2, Mail, Phone } from "lucide-react";
+import { ArrowUpRight, Check, ChevronRight, Copy, ContactRound, Globe2, Mail, Phone } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { ContactItem, Profile } from "@sia/validation";
 import { buildVCard, vCardFileName } from "@/lib/vcard";
@@ -98,6 +98,9 @@ export function ProfileContactPanel({
                   <small>{defaultLabel(item)}</small>
                   <strong>{linkText(item)}</strong>
                 </span>
+                <span className="contact-go" aria-hidden="true">
+                  {item.type === "link" ? <ArrowUpRight size={15} /> : <ChevronRight size={15} />}
+                </span>
               </a>
               {!compact && (
                 <button
@@ -118,6 +121,10 @@ export function ProfileContactPanel({
           <button type="button" className="button button-secondary contact-save" onClick={saveContact}>
             <ContactRound size={16} /> Save contact
           </button>
+          <p className="contact-note">
+            Saved contacts include {profile.display_name}’s Sia link, so you can always come back for
+            the current details.
+          </p>
           <p className="contact-status" role="status">{saveError || (copied ? "Copied" : "")}</p>
         </>
       )}

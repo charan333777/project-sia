@@ -24,6 +24,24 @@ function GoogleMark() {
   );
 }
 
+/**
+ * Supabase's own wording leaks library shapes ("AuthApiError", "invalid_grant") into a screen
+ * people meet before they trust the product. Known cases get our words; anything unrecognised
+ * falls back to a plain sentence rather than the raw message.
+ */
+function friendlyAuthError(caught: unknown) {
+  const raw = caught instanceof Error ? caught.message : "";
+  const text = raw.toLowerCase();
+  if (text.includes("invalid login credentials")) return "That email and password don’t match. Try again, or reset your password.";
+  if (text.includes("email not confirmed")) return "Confirm your email first — check your inbox for the link.";
+  if (text.includes("user already registered") || text.includes("already been registered")) return "There’s already an account with that email. Log in instead.";
+  if (text.includes("password should be at least")) return "Use a password of at least 6 characters.";
+  if (text.includes("unable to validate email") || text.includes("invalid email")) return "That email address doesn’t look right.";
+  if (text.includes("rate limit") || text.includes("too many")) return "Too many attempts. Wait a minute, then try again.";
+  if (text.includes("failed to fetch") || text.includes("networkerror")) return "We couldn’t reach Sia. Check your connection and try again.";
+  return "That didn’t work. Try again in a moment.";
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -68,13 +86,24 @@ function LoginForm() {
     setHasDraft(Boolean(sessionStorage.getItem(PROFILE_DRAFT_KEY)));
   }, []);
 
-  useEffect(() => {
-    if (authLoading || !session || finishingRef.current) return;
-    setLoading(true); setError(""); setMessage("");
-    void finish(session.access_token)
-      .catch((caught) => setError(caught instanceof Error ? caught.message : "We couldn’t finish signing you in."))
+  const [handoffFailed, setHandoffFailed] = useState(false);
+
+  const runHandoff = useCallback((accessToken: string) => {
+    setLoading(true); setError(""); setMessage(""); setHandoffFailed(false);
+    void finish(accessToken)
+      .catch((caught) => {
+        setError(friendlyAuthError(caught));
+        // The session is real even though the hand-off failed, so offer a way forward
+        // instead of leaving someone signed in and stuck looking at an error.
+        setHandoffFailed(true);
+      })
       .finally(() => setLoading(false));
-  }, [authLoading, finish, session]);
+  }, [finish]);
+
+  useEffect(() => {
+    if (authLoading || !session || finishingRef.current || handoffFailed) return;
+    runHandoff(session.access_token);
+  }, [authLoading, handoffFailed, runHandoff, session]);
 
   const signInWithGoogle = async () => {
     if (!supabase) return;
@@ -86,7 +115,7 @@ function LoginForm() {
       });
       if (result.error) throw result.error;
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google sign-in didn’t work. Try again.");
+      setError(friendlyAuthError(caught));
       setLoading(false);
     }
   };
@@ -109,7 +138,19 @@ function LoginForm() {
       if (result.data.session) await finish(result.data.session.access_token);
       else setMessage("Confirm your email, then come back here. Your Sia is safe.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "That didn’t work. Try again.");
+      setError(friendlyAuthError(caught));
+    } finally { setLoading(false); }
+  };
+
+  const resendConfirmation = async () => {
+    if (!supabase || !email) return;
+    setLoading(true); setError("");
+    try {
+      const result = await supabase.auth.resend({ type: "signup", email, options: { emailRedirectTo: `${siteUrl}/login` } });
+      if (result.error) throw result.error;
+      setMessage("Sent again — check your inbox.");
+    } catch (caught) {
+      setError(friendlyAuthError(caught));
     } finally { setLoading(false); }
   };
 
@@ -131,17 +172,32 @@ function LoginForm() {
           <span className="eyebrow">{hasDraft ? "One last step" : mode === "signup" ? "Join Sia" : "Welcome back"}</span>
           <h1>{hasDraft ? "Save your Sia." : mode === "signup" ? "Create your space." : "Good to see you."}</h1>
           <p>{hasDraft ? "So it always belongs to you." : mode === "signup" ? "A small place that feels like you." : "Your Sia is waiting."}</p>
-          <div className="auth-tabs" role="tablist" aria-label="Account action">
-            <button type="button" role="tab" aria-selected={mode === "signup"} onClick={() => switchMode("signup")}>Sign up</button>
-            <button type="button" role="tab" aria-selected={mode === "login"} onClick={() => switchMode("login")}>Log in</button>
+          <div className="auth-tabs" role="group" aria-label="Account action">
+            <button type="button" aria-pressed={mode === "signup"} onClick={() => switchMode("signup")}>Sign up</button>
+            <button type="button" aria-pressed={mode === "login"} onClick={() => switchMode("login")}>Log in</button>
           </div>
         </>
       )}
 
       {!supabase ? (
         <p className="config-message" role="status">Authentication isn’t ready yet.</p>
+      ) : handoffFailed && session ? (
+        <div className="auth-success" role="status">
+          <span><MailCheck /></span>
+          <h2>Almost there</h2>
+          <p>You’re signed in, but we couldn’t finish setting up your Sia. {error}</p>
+          <Button type="button" loading={loading} onClick={() => runHandoff(session.access_token)}>Try again <ArrowRight size={17} /></Button>
+        </div>
       ) : message ? (
-        <div className="auth-success" role="status"><span><MailCheck /></span><h2>Check your email</h2><p>{message}</p><button type="button" onClick={() => setMessage("")}>Use another email</button></div>
+        <div className="auth-success" role="status">
+          <span><MailCheck /></span>
+          <h2>Check your email</h2>
+          <p>{message}</p>
+          {mode === "signup" && !forgot && (
+            <button type="button" onClick={() => void resendConfirmation()} disabled={loading}>Didn’t arrive? Send it again</button>
+          )}
+          <button type="button" onClick={() => { setMessage(""); setError(""); }}>Use another email</button>
+        </div>
       ) : (
         <form className="auth-form" onSubmit={submit}>
           {!forgot && (

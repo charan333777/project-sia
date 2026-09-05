@@ -3,6 +3,45 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-05 — Contact-card outage, and the fixes it prompted
+
+**The incident.** The contact-card code deployed ahead of its migration. Every stored profile came
+back without `contact_items`, `publicContactItems(undefined)` threw, and every public profile
+returned 500 — so every QR scan hit an error page. `/profile/edit` failed the same way in the
+browser, on `value.length`. Applying the migration restored service immediately; no data was lost.
+
+The lesson was not "remember the migration" but that the code should not have cared. `present()`
+now normalises `contact_items` to `[]`, `publicContactItems` tolerates null, and the editor guards
+its array, so a row predating the column is served rather than fatal. An API test reproduces the
+outage exactly — removing the guards turns it back into a 500.
+
+**Sign-in.** Four fixes. A failed post-auth hand-off used to leave someone authenticated but stuck
+on an error with no way forward except a reload; there is now an explicit retry that re-runs the
+hand-off against the live session. Supabase's raw error text no longer reaches the screen — known
+cases are mapped to plain sentences and anything unrecognised falls back to one, instead of showing
+"AuthApiError". A signup whose confirmation email never arrives can be resent. And the mode switch
+dropped `role="tab"` for `aria-pressed`, because there was no tabpanel for those tabs to control.
+
+**The QR card now prints its own address.** A card is held up in bad light to old cameras, and a
+failed scan previously had no recourse at all. The readable URL appears under the code on screen and
+on the downloadable poster, where a failed scan is otherwise final.
+
+**Contact rows look tappable.** They were already links — the whole row opens the link, mail app or
+dialer — but on a phone there is no hover to reveal it, so the copy button looked like the only
+action. Links now carry an outward arrow, email and phone a chevron. A line under **Save contact**
+notes that a saved contact includes the person's Sia link, which is the honest version of "this card
+stays current": the vCard is a snapshot, the link is not.
+
+**Docs corrected.** `overview.md` and `deployment-and-domain.md` named the retired Oregon API host;
+benchmarking that host is what produced the earlier "2.3s round trip" figure. The live API is
+`project-sia-1` at ~150–200 ms warm. Roadmap item 3(a) is marked shipped with measured numbers, and
+two stale sign-in claims were removed. The old Oregon service is still running and still serving
+production data — deleting it is outstanding.
+
+`apps/web/app/login/page.tsx`, `apps/web/components/qr-viewer.tsx`,
+`apps/web/components/profile-contact-panel.tsx`, `apps/api/src/services/profile-service.ts`,
+`packages/validation/src/profile.ts`.
+
 ## 2026-09-05 — The contact card
 
 A scanned Sia now answers "how do I reach this person?". A profile carries up to eight contact

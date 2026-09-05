@@ -183,8 +183,10 @@ const contactItemsSchema = z
  * profile leaves the server — a hidden detail is absent from the response, not merely
  * unrendered, so it never reaches the page source, the OG image or the vCard.
  */
-export function publicContactItems(items: readonly ContactItem[]): ContactItem[] {
-  return items.filter((item) => item.is_public);
+export function publicContactItems(items: readonly ContactItem[] | null | undefined): ContactItem[] {
+  // Tolerates a row written before the column existed: an unmigrated database must not
+  // be able to take down a public profile.
+  return (items ?? []).filter((item) => item.is_public);
 }
 
 export const profileInputSchema = z.object({

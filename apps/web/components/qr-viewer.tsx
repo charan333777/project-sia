@@ -6,6 +6,11 @@ import { Logo } from "./logo";
 import { getProfileCharacterOption } from "./profile-characters";
 import { getProfileTheme } from "./profile-themes";
 
+/** What a person would type if the scan fails: no scheme, no trailing slash. */
+function readableUrl(url: string) {
+  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
+}
+
 export function QrViewer({ profile, url }: { profile: Profile; url: string }) {
   const theme = getProfileTheme(profile.profile_theme);
   const character = getProfileCharacterOption(profile.profile_character);
@@ -27,6 +32,9 @@ export function QrViewer({ profile, url }: { profile: Profile; url: string }) {
       {avatarSrc && <div className={`qr-character-medallion ${profile.avatar_url ? "qr-photo-medallion" : ""}`} aria-label={profile.avatar_url ? `${profile.display_name}'s photo` : `${character.label} personality`}><img src={avatarSrc} alt="" width="96" height="96" draggable={false} /></div>}
       <h1>{profile.display_name}</h1>
       <p>Scan to meet {profile.display_name}</p>
+      {/* A card is held up in bad light to old cameras. Without a typable address a failed
+          scan is a dead end, so the URL is part of the card, not a detail beside it. */}
+      <span>{readableUrl(url)}</span>
     </div>
   );
 }

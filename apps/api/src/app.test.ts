@@ -204,6 +204,22 @@ describe("profile API", () => {
     expect(scanned.payload).not.toContain("zach@example.com");
   });
 
+  it("still serves a profile stored before the contact column existed", async () => {
+    // Reproduces the production failure of 2026-09-05: the API shipped ahead of the
+    // migration, every stored row lacked `contact_items`, and every public profile 500'd.
+    await repository.create("user-1", input);
+    const stored = repository.records[0]! as Partial<StoredProfile>;
+    delete stored.contact_items;
+
+    const scanned = await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" });
+    expect(scanned.statusCode).toBe(200);
+    expect(scanned.json().data.contact_items).toEqual([]);
+
+    const mine = await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers: { authorization: "Bearer valid" } });
+    expect(mine.statusCode).toBe(200);
+    expect(mine.json().data.contact_items).toEqual([]);
+  });
+
   it("refuses a contact link that is not http or https", async () => {
     const headers = { authorization: "Bearer valid" };
     const response = await app.inject({

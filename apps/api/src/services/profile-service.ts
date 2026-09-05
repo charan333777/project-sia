@@ -44,6 +44,8 @@ export class ProfileService {
     const status = resolveProfileStatus(profile);
     return {
       ...profile,
+      // A profile stored before the contact column existed reads back without it.
+      contact_items: profile.contact_items ?? [],
       status_state: status ? profile.status_state : "off",
       status_duration: status ? profile.status_duration : null,
       status_expires_at: status ? profile.status_expires_at : null,

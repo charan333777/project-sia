@@ -25,7 +25,7 @@ anonymous database row is ever created.
 | Piece | Where | State |
 | --- | --- | --- |
 | Web app | https://siaqr.com (Vercel) | Live, returns 200 |
-| API | https://project-sia-w8sz.onrender.com/api/v1 (Render) | Live, `/health` returns `{"data":{"status":"ok"}}` |
+| API | https://project-sia-1.onrender.com/api/v1 (Render, paid instance) | Live, `/health` returns `{"data":{"status":"ok"}}`; ~150–200 ms warm |
 | Database + Auth + Storage | Supabase project `jnsdualsptqeajfreqhy` | PostgreSQL + PostGIS, email/password auth, private `profile-photos` bucket |
 | CI | `.github/workflows/ci.yml` | `pnpm test`, `typecheck`, `build` on every push and PR |
 | Repo | `github.com/charan333777/project-sia`, single `main` branch | — |

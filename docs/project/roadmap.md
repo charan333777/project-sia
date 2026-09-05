@@ -35,12 +35,20 @@ links only Home / Create a profile / Nearby. Sia handles location data and publi
 profiles, with UK and EU users. This is both a legal exposure and a trust gap that undercuts the
 privacy positioning the product otherwise works hard for.
 
-### 3. Region move — the single biggest performance win, and it is free
+### 3. Region move — step (a) shipped 2026-09-05, (b) and (c) remain
 
-Measured 2026-09-04: the homepage (static, edge-served) returns in **0.07s**; `/u/:username`
-(server-rendered, hits the API) takes **0.7–2.0s**, median ~1.1s. That is the most
-latency-sensitive screen in the product — someone standing in front of another person, holding a
-phone.
+**Re-measured 2026-09-05, after the Frankfurt move.** `/u/:username` (server-rendered, hits the
+API) now returns in **0.29–0.45s**, and the API itself answers in **124–206 ms** warm, on a paid
+instance with no cold start. The predicted ~0.4s for step (a) landed almost exactly.
+
+The old Oregon service `project-sia-w8sz` is **still running and still connected to the production
+database** — a second public entry point to the same data. Deleting it is the remaining part of
+step (a). Beware when benchmarking: that host still answers, ~600 ms warm, and measuring it instead
+of the live one is an easy way to reach a wrong conclusion about latency.
+
+For history, the pre-move numbers were: homepage **0.07s**, `/u/:username` **0.7–2.0s**, median
+~1.1s. That screen is the most latency-sensitive in the product — someone standing in front of
+another person, holding a phone.
 
 The cause is geography. One profile view crosses four regions:
 
@@ -53,10 +61,9 @@ A single indexed row lookup costs ~200 ms, which is the Oregon↔Frankfurt cross
 
 Do these in order — step b makes things *worse* if done before step a:
 
-- **a. Recreate the Render web service in Frankfurt.** Render cannot change an existing service's
-  region; create a new service, copy env vars, set `WEB_ORIGIN`, repoint Vercel's
-  `NEXT_PUBLIC_API_URL`, then delete the Oregon service. Frankfurt is Render's only EU region and
-  already matches Supabase. Expected: ~1.1s → ~0.4s.
+- **a. ~~Recreate the Render web service in Frankfurt.~~ Done 2026-09-05** — `project-sia-1`,
+  paid instance, and Vercel's `NEXT_PUBLIC_API_URL` repointed to it. Measured ~1.1s → ~0.35s.
+  Outstanding: delete the old Oregon service, which still serves production data.
 - **b. Pin Vercel SSR to `fra1`** with `preferredRegion` on `/u/[username]` and its OG image route
   (the only dynamic routes). Expected: → ~0.15s.
 - **c. Cache the Supabase Storage signed URL.** Every public profile view mints a fresh one-hour
@@ -105,9 +112,9 @@ Smaller, verified against the live site on 2026-09-04:
 - **Sitemap lists 2 URLs** (`/` and `/create`); public profiles are not enumerated.
 - **No security headers**: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and
   `Permissions-Policy` are all absent. `Permissions-Policy` matters most here, given geolocation.
-- **Auth is email + password only**, 6-character minimum, no social or magic link — the heaviest
-  option for a "no app, two minutes" product. The sign-up tab also keeps
-  `autocomplete="current-password"` (should be `new-password`) and shows "No Sia yet? Create yours".
+- **Password minimum is 6 characters**, which is weak for an account that now publishes contact
+  details. (Google sign-in shipped, and the sign-up tab's `autocomplete` is already `new-password`
+  — both earlier notes here were stale, corrected 2026-09-05.)
 - **Two competing account-creation paths** (`/create` wizard vs `/login` → Sign up) with different
   mental models.
 - **Avatar status ring**: the status band ships with a countdown ring, but the ring around the
