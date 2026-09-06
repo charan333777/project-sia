@@ -13,6 +13,7 @@ import type {
   ProfileInput,
   ProfileStatusInput,
   ProfileUpdate,
+  ProfileViewSummary,
 } from "@sia/validation";
 
 export const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
@@ -30,10 +31,14 @@ export class ApiRequestError extends Error {
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string) {
   const hasFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  // Declaring a JSON body and sending none makes Fastify reject the request before it
+  // reaches a route, so bodyless calls — every DELETE, and the POSTs that carry their
+  // argument in the path — must not announce a content type at all.
+  const sendsJson = options.body !== undefined && !hasFormData;
   const response = await fetch(`${apiBaseUrl}${path}`, {
     ...options,
     headers: {
-      ...(!hasFormData ? { "Content-Type": "application/json" } : {}),
+      ...(sendsJson ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
@@ -65,6 +70,22 @@ export const api = {
     request<Profile>("/profiles/me/photo", { method: "DELETE" }, token),
   getPublicProfile: (username: string) =>
     request<Profile>(`/public/profiles/${encodeURIComponent(username)}`, { cache: "no-store" }),
+  deleteProfile: (token: string) =>
+    request<{ deleted_at: string | null; purges_at: string | null; grace_days: number }>(
+      "/profiles/me", { method: "DELETE" }, token,
+    ),
+  restoreProfile: (token: string) => request<Profile>("/profiles/me/restore", { method: "POST" }, token),
+  getPendingDeletion: (token: string) =>
+    request<{ deleted_at: string; purges_at: string; restorable: boolean } | null>(
+      "/profiles/me/deletion", { cache: "no-store" }, token,
+    ),
+  getProfileViews: (token: string) =>
+    request<ProfileViewSummary>("/profiles/me/views", { cache: "no-store" }, token),
+  /** Fire-and-forget: a failed count must never disturb the page a scanner is reading. */
+  recordProfileView: (username: string) =>
+    request<{ counted: boolean }>(`/public/profiles/${encodeURIComponent(username)}/view`, { method: "POST" }),
+  getSearchableProfiles: () =>
+    request<{ username: string; updated_at: string }[]>("/public/profiles", { cache: "no-store" }),
   getNearby: (token: string) => request<NearbySnapshot>("/nearby", { cache: "no-store" }, token),
   updateNearbyPresence: (input: NearbyPresenceInput, token: string) =>
     request<NearbySnapshot>("/nearby/presence", { method: "PUT", body: JSON.stringify(input) }, token),

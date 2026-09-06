@@ -42,6 +42,10 @@ secrets are recorded here or anywhere in the repo.
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
 | Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists | `apps/web/lib/profile-photo-draft.ts`, `apps/web/app/login/page.tsx` |
 | QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx` |
+| Account deletion | Done — 30-day soft delete, hidden immediately, username retired permanently on purge | `apps/api/src/services/profile-service.ts`, `apps/web/components/delete-account.tsx`, `apps/web/app/profile/deleted/page.tsx` |
+| Scan counts | Done — per-day integer per profile, counted from the browser so crawlers do not inflate it | `apps/web/components/profile-view-counter.tsx`, `apps/web/components/profile-views.tsx` |
+| Terms & privacy | Pages published; controller and governing-law details are placeholders in `apps/web/lib/legal.ts` | `apps/web/app/privacy/page.tsx`, `apps/web/app/terms/page.tsx` |
+| Search listing | Done — per-profile opt-in, default off; only opted-in profiles enter `sitemap.xml` | `apps/web/app/sitemap.ts` |
 | Contact card | Done — up to 8 links/emails/phones, each published or hidden individually; copy and vCard export on the public card | `packages/validation/src/profile.ts`, `apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`, `apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts` |
 | Personalisation | Done — 4 themes (calm/warm/bold/play), 5 characters (plain/puppy/elephant/panda/play) | `apps/web/components/profile-themes.ts`, `apps/web/components/profile-characters.ts`, `apps/web/public/mascots/` |
 | Profile photos | Done — private bucket, file-signature check, EXIF/XMP/IPTC stripped server-side, 1-hour signed URLs | `apps/api/src/services/profile-photo-storage.ts` |
@@ -131,20 +135,32 @@ server-only credential. Columns and constraints: [database schema](../database/s
   (the card, the OG image, the JSON-LD, the vCard) inherits that filter by construction.
 - Contact links are **`http`/`https` only**, enforced by a protocol allowlist in `@sia/validation`
   rather than a pattern, and rendered with `rel="noopener noreferrer nofollow"`.
+- A deleted profile is **hidden by the read, erased by the sweep**. Every read filters `deleted_at`,
+  so a row awaiting purge is never served; the 30-day sweep performs the erasure. A **retired
+  username is never reissued** — printed cards outlive accounts, and a reused name would point
+  strangers at someone else.
+- Scan counts hold **an integer and a date, per profile**. There is nowhere in the schema to record a
+  visitor, and counting happens in the browser so crawlers and link previews stay out of the number.
+- **Listed is not the same as public.** `list_in_search` is a separate opt-in, default false; only
+  opted-in profiles enter `sitemap.xml`.
+- The web API client must not send `Content-Type: application/json` on a bodyless request — Fastify
+  rejects it before routing. `apps/web/lib/api.test.ts` guards this.
 - The service role key never reaches the browser.
 
 ## Known gaps and loose ends
 
 Facts, not recommendations:
 
-- Thin web-side coverage — `@sia/web` now runs `vitest run` against `lib/` helpers only; there are
-  still no component or rendering tests. Coverage elsewhere is validation schemas plus API route
-  tests against fake providers.
+- Web coverage is narrow but real — `@sia/web` runs `vitest run` in jsdom over the profile form and
+  its helpers. Other components, the QR page and the public profile have no rendering tests yet.
+  Coverage elsewhere is validation schemas plus API route tests against fake providers.
 - Root `CHANGELOG.md` still describes 1.0.0 only; it predates themes, characters, photos, Nearby and
   the SEO pass.
 - Empty leftover route folders: `apps/web/app/nearby-qa/` and `apps/web/app/qr-personality-demo/`.
-- `apps/web/app/sitemap.ts` lists only `/` and `/create` — public profiles are not enumerated.
-- No account deletion or data export flow.
+- No data export flow. Deletion exists; export on request is described in the privacy policy but not
+  automated.
+- `apps/web/lib/legal.ts` still holds `TODO:` placeholders for the data controller, postal address,
+  contact email and governing law. Both legal pages show a visible warning until they are filled in.
 - `nearby_reports` has no admin or moderation surface; rows accumulate unread.
 - V1 deliberately has no map tiles, exact pins, permanent inbox, feed, friends/followers, push
   notifications, payments, AI, or admin dashboard.

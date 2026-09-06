@@ -1,8 +1,11 @@
 import {
+  isProfileRestorable,
+  profileDeletionGraceDays,
   profileInputSchema,
   profileStatusExpiry,
   profileStatusInputSchema,
   profileUpdateSchema,
+  profilePurgeDueAt,
   publicContactItems,
   resolveProfileStatus,
   type Profile,
@@ -24,11 +27,39 @@ function isUniqueViolation(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "23505";
 }
 
+const purgeIntervalMs = 60_000;
+
 export class ProfileService {
+  private lastPurgedAt = 0;
+  private purgeInFlight: Promise<void> | null = null;
+
   constructor(
     private readonly profiles: ProfileRepository,
     private readonly photos?: ProfilePhotoStorage,
   ) {}
+
+  /**
+   * Purges profiles whose 30-day grace window has closed, at most once a minute.
+   *
+   * Reads already exclude deleted rows, so this is not what hides a deleted profile —
+   * it is what performs the erasure that backs the promise, the same division of labour
+   * Nearby uses for its expiring data.
+   */
+  private async purgeDueProfiles() {
+    if (Date.now() - this.lastPurgedAt < purgeIntervalMs) return;
+    if (this.purgeInFlight) return this.purgeInFlight;
+    this.purgeInFlight = this.profiles
+      .purgeDeleted(profileDeletionGraceDays)
+      .then(async (avatarPaths) => {
+        for (const path of avatarPaths) await this.photos?.remove(path).catch(() => undefined);
+        this.lastPurgedAt = Date.now();
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        this.purgeInFlight = null;
+      });
+    return this.purgeInFlight;
+  }
 
   private async present(profile: StoredProfile): Promise<Profile> {
     let avatarUrl: string | null = null;
@@ -67,9 +98,11 @@ export class ProfileService {
 
   async create(userId: string, rawInput: ProfileInput) {
     const input = profileInputSchema.parse(rawInput);
-    if (await this.profiles.findByUserId(userId)) {
+    void this.purgeDueProfiles();
+    if (await this.profiles.findByUserId(userId, true)) {
       throw new AppError(409, "PROFILE_EXISTS", "You already have a Sia profile.");
     }
+    await this.assertUsernameAvailable(input.username);
     try {
       return await this.present(await this.profiles.create(userId, input));
     } catch (error) {
@@ -80,6 +113,13 @@ export class ProfileService {
     }
   }
 
+  /** A name belonging to a purged account is never reissued — printed cards outlive accounts. */
+  private async assertUsernameAvailable(username: string) {
+    if (await this.profiles.isUsernameRetired(username)) {
+      throw new AppError(409, "USERNAME_TAKEN", "That username is already in use.");
+    }
+  }
+
   async getMine(userId: string) {
     const profile = await this.profiles.findByUserId(userId);
     if (!profile) throw profileNotFound();
@@ -87,6 +127,7 @@ export class ProfileService {
   }
 
   async getPublic(username: string) {
+    void this.purgeDueProfiles();
     const profile = await this.profiles.findPublicByUsername(username);
     if (!profile) throw profileNotFound();
     return await this.presentPublic(profile);
@@ -97,6 +138,7 @@ export class ProfileService {
     const current = await this.profiles.findByUserId(userId);
     if (!current) throw profileNotFound();
     const input = profileInputSchema.parse({ ...current, ...patch });
+    if (input.username !== current.username) await this.assertUsernameAvailable(input.username);
     try {
       const updated = await this.profiles.update(userId, input);
       if (!updated) throw profileNotFound();
@@ -135,6 +177,68 @@ export class ProfileService {
 
   async clearStatus(userId: string) {
     return await this.setStatus(userId, { state: "off" });
+  }
+
+  /**
+   * Marks the account deleted. The profile disappears from every read at once — the public
+   * page 404s and the QR stops resolving — while the row is kept for the grace window so a
+   * misclick is recoverable.
+   */
+  async deleteMine(userId: string) {
+    const deleted = await this.profiles.softDelete(userId);
+    if (!deleted) throw profileNotFound();
+    return {
+      deleted_at: deleted.deleted_at,
+      purges_at: deleted.deleted_at ? profilePurgeDueAt(deleted.deleted_at).toISOString() : null,
+      grace_days: profileDeletionGraceDays,
+    };
+  }
+
+  /** Brings a profile back, but only while it is still inside the grace window. */
+  async restoreMine(userId: string) {
+    const current = await this.profiles.findByUserId(userId, true);
+    if (!current) throw profileNotFound();
+    if (!current.deleted_at) return await this.present(current);
+    if (!isProfileRestorable(current.deleted_at)) {
+      throw new AppError(410, "PROFILE_PURGED", "That profile has been permanently deleted.");
+    }
+    const restored = await this.profiles.restore(userId);
+    if (!restored) throw profileNotFound();
+    return await this.present(restored);
+  }
+
+  /**
+   * Reports a pending deletion to its owner. Returns null for a live account, so the web
+   * app can offer recovery without a second request.
+   */
+  async pendingDeletion(userId: string) {
+    const current = await this.profiles.findByUserId(userId, true);
+    if (!current?.deleted_at) return null;
+    return {
+      deleted_at: current.deleted_at,
+      purges_at: profilePurgeDueAt(current.deleted_at).toISOString(),
+      restorable: isProfileRestorable(current.deleted_at),
+    };
+  }
+
+  /** Counts one open of a public profile. Nothing about the visitor is recorded. */
+  async recordPublicView(username: string) {
+    const profile = await this.profiles.findPublicByUsername(username);
+    if (!profile) return { counted: false };
+    await this.profiles.recordView(profile.id);
+    return { counted: true };
+  }
+
+  async viewSummaryForOwner(userId: string) {
+    const profile = await this.profiles.findByUserId(userId);
+    if (!profile) throw profileNotFound();
+    return await this.profiles.viewSummary(profile.id);
+  }
+
+  /** The profiles their owners chose to list in search engines. */
+  async searchableProfiles() {
+    void this.purgeDueProfiles();
+    return await this.profiles.listSearchableUsernames();
   }
 
   async uploadPhoto(userId: string, bytes: Buffer) {

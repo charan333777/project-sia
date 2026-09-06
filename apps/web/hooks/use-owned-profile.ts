@@ -24,8 +24,15 @@ export function useOwnedProfile() {
       .then((data) => active && setProfile(data))
       .catch((caught) => {
         if (!active) return;
-        if (caught instanceof ApiRequestError && caught.code === "PROFILE_NOT_FOUND") router.replace("/create");
-        else setError(caught instanceof Error ? caught.message : "We couldn’t load your profile.");
+        if (caught instanceof ApiRequestError && caught.code === "PROFILE_NOT_FOUND") {
+          // A profile awaiting purge also reads as missing. Sending someone to /create
+          // would dead-end on PROFILE_EXISTS, so offer recovery instead.
+          void api.getPendingDeletion(session.access_token)
+            .then((pending) => active && router.replace(pending ? "/profile/deleted" : "/create"))
+            .catch(() => active && router.replace("/create"));
+          return;
+        }
+        setError(caught instanceof Error ? caught.message : "We couldn’t load your profile.");
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };

@@ -41,6 +41,7 @@ export const emptyProfile: ProfileInput = {
   profile_theme: "calm",
   profile_character: "plain",
   contact_items: [],
+  list_in_search: false,
 };
 
 const interestSuggestions = ["AI", "Startups", "DevOps", "Photography", "Music", "Football", "Travel", "Design"];
@@ -207,6 +208,28 @@ function VisibilityChoice({ value, set, onChoose, chosen = true }: Pick<FormFiel
         {chosen && !value.is_public && <Check size={19} className="visibility-check" />}
       </button>
     </div>
+  );
+}
+
+/**
+ * Public means "anyone with the link can open this". Listed means "put it in an index of
+ * every profile on Sia" — a different decision now that a card can carry a phone number,
+ * so it is asked separately and defaults to off.
+ */
+function SearchListingChoice({ value, set }: Pick<FormFieldsProps, "value" | "set">) {
+  if (!value.is_public) return null;
+  return (
+    <label className="search-listing">
+      <input
+        type="checkbox"
+        checked={value.list_in_search}
+        onChange={(event) => set("list_in_search", event.target.checked)}
+      />
+      <span>
+        <strong>Let search engines list me</strong>
+        <small>Off by default. Your Sia works either way — this only decides whether it can be found by searching.</small>
+      </span>
+    </label>
   );
 }
 
@@ -387,6 +410,7 @@ export function ProfileForm({
             <>
               <p className="visibility-lede">Who can open your profile?</p>
               <VisibilityChoice value={value} set={set} chosen={visibilityChosen} onChoose={() => { setVisibilityChosen(true); setErrors({}); }} />
+              {visibilityChosen && <SearchListingChoice value={value} set={set} />}
               {errors.visibility && <p className="field-error visibility-error" role="alert">{errors.visibility}</p>}
             </>
           )}
@@ -459,7 +483,7 @@ export function EditProfileForm({
       </details>
       <details className="edit-details">
         <summary><span><Globe2 size={18} /> Visibility</span><span className="visibility-summary">{value.is_public ? "Public" : "Private"}</span><ChevronDown size={18} /></summary>
-        <div className="edit-details-body"><VisibilityChoice value={value} set={set} /></div>
+        <div className="edit-details-body"><VisibilityChoice value={value} set={set} /><SearchListingChoice value={value} set={set} /></div>
       </details>
 
       {serverError && <p className="form-error" role="alert">{serverError}</p>}

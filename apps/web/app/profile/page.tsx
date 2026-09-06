@@ -6,6 +6,7 @@ import { Suspense, useState } from "react";
 import { Button, ButtonLink } from "@/components/button";
 import { LoadingState } from "@/components/loading-state";
 import { ProfileCard } from "@/components/profile-card";
+import { ProfileViews } from "@/components/profile-views";
 import { ProfileStatusPicker } from "@/components/profile-status-picker";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
 
@@ -48,6 +49,7 @@ function ProfileContent() {
           {profile.is_public && <ButtonLink href={`/u/${profile.username}`} variant="quiet"><Eye size={17} /> Preview</ButtonLink>}
         </div>
         <ProfileCard profile={profile} owner />
+        {profile.is_public && session && <ProfileViews token={session.access_token} />}
         {session && (
           <ProfileStatusPicker profile={profile} token={session.access_token} onChange={setProfile} />
         )}

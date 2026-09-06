@@ -3,6 +3,70 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-05 — Deletion, scan counts, search listing, and the legal pages
+
+Four features, plus a production bug found while testing them.
+
+**Account deletion, 30-day soft delete.** Confirming requires typing your own username, and the
+dialog states what happens rather than implying it. The profile is hidden the instant `deleted_at` is
+set — public page 404s, QR stops resolving, writes refused — while the row survives 30 days so a
+misclick is recoverable by logging back in. A sweep, rate-limited the same way Nearby prunes, then
+erases the row and its photo. Reads filter `deleted_at` themselves, so an unswept row is never
+served: the sweep performs erasure, it does not police visibility.
+
+Usernames are **retired permanently** on purge. Printed cards outlive accounts, and reissuing
+`@charan` would send everyone holding an old card to a stranger. `use-owned-profile` now routes a
+deleted account to recovery instead of `/create`, which would have dead-ended on `PROFILE_EXISTS`.
+
+**Scan counts.** One row per profile per UTC day holding an integer — the schema has nowhere to put a
+visitor, so the privacy claim is structural rather than a promise. Counting happens in the browser
+after hydration, which is what keeps crawlers and link previews out: verified by loading the page in
+a real browser (count rose) and then fetching it as Googlebot (count unchanged).
+
+**Search listing is a separate opt-in.** Public means "reachable by link"; listed means "indexed in a
+directory of every profile", which is a different decision now that a card carries a phone number.
+Default off; only opted-in profiles enter `sitemap.xml`.
+
+**Terms and privacy published.** Both pages describe what Sia actually does — per-detail publishing,
+server-side filtering, Nearby's bands and sectors, the deletion window, retired usernames. The
+controller, address, contact email and governing law are `TODO:` placeholders in
+`apps/web/lib/legal.ts`, and both pages show a visible warning until they are replaced. **These pages
+are not complete until Charan fills those in.**
+
+**The bug found on the way.** The web API client set `Content-Type: application/json` on every
+request, including bodyless ones. Fastify rejects a request that declares a JSON body and sends
+none, so it 500s before routing. Confirmed against production: a bodyless `DELETE` with that header
+returned 500, without it 401. It had been breaking `removeProfilePhoto`, `clearProfileStatus`,
+`hideNearby` and `blockNearbyProfile` from the browser — every bodyless call the app makes. The
+header is now sent only when there is a body, and `apps/web/lib/api.test.ts` guards it.
+
+Migrations `202609050002_add_account_deletion.sql`, `202609050003_add_profile_views.sql`,
+`202609050004_add_search_listing.sql`.
+
+## 2026-09-05 — Render tests, and the owner's own card
+
+Two follow-ups to the signup dead end.
+
+**The owner's profile offered to save you to yourself.** `/profile` renders the same `ProfileCard`
+as the public page, so the contact panel arrived with a **Save contact** button and a note about
+coming back for the current details — addressed to the person whose details they are. The rows stay,
+because seeing what is published is useful; the actions are suppressed. `ProfileCard` takes an
+`owner` flag and the panel's flag is now `readOnly`, which says what it does.
+
+**`@sia/web` has render tests.** Both bugs found today lived in the wiring between form state and the
+rendered error — territory a schema test cannot reach, which is why a suite of 23 passing validation
+tests said nothing while signup was broken. `profile-form.test.tsx` drives the real wizard through
+jsdom: it walks the steps, taps "+ Link", and asserts on what a person would actually see. Reverting
+the fix turns three of the five red, so they test the behaviour rather than describing it.
+
+Adding `jsdom` re-resolved vitest's peer hash and left `packages/validation`'s symlink pointing at a
+store path that no longer existed — typecheck failed there until a workspace-wide `pnpm install`
+relinked it. `pnpm install --frozen-lockfile` now succeeds, so CI is unaffected.
+
+`apps/web/vitest.config.ts`, `apps/web/vitest.setup.ts`,
+`apps/web/components/profile-form.test.tsx`, `apps/web/components/profile-card.tsx`,
+`apps/web/components/profile-contact-panel.tsx`, `apps/web/app/profile/page.tsx`.
+
 ## 2026-09-05 — Signup dead end from an untouched contact row
 
 Reported after the contact card shipped: new signups could fail with no explanation.

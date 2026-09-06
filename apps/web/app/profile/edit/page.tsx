@@ -3,6 +3,7 @@
 import type { ProfileInput } from "@sia/validation";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DeleteAccount } from "@/components/delete-account";
 import { LoadingState } from "@/components/loading-state";
 import { EditProfileForm, type ProfilePhotoChange } from "@/components/profile-form";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
@@ -34,6 +35,11 @@ export default function EditProfilePage() {
       <div className="narrow-shell">
         <div className="page-intro"><span className="eyebrow">Keep it current</span><h1>Edit your Sia.</h1></div>
         <EditProfileForm initialValue={profile} submitting={submitting} serverError={serverError} onSubmit={submit} />
+        <DeleteAccount
+          profile={profile}
+          token={session.access_token}
+          onDeleted={() => router.replace("/profile/deleted")}
+        />
       </div>
     </main>
   );

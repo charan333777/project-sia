@@ -10,6 +10,8 @@ export function Footer() {
         <Link href="/">Home</Link>
         <Link href="/create">Create a profile</Link>
         <Link href="/nearby">Nearby</Link>
+        <Link href="/privacy">Privacy</Link>
+        <Link href="/terms">Terms</Link>
       </nav>
       <span>© {new Date().getFullYear()} Sia</span>
     </footer>

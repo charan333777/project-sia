@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { ButtonLink } from "@/components/button";
 import { ProfileCard } from "@/components/profile-card";
+import { ProfileViewCounter } from "@/components/profile-view-counter";
 import { api, ApiRequestError } from "@/lib/api";
 import { absoluteUrl, siteConfig } from "@/lib/site";
 
@@ -80,6 +81,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
+      <ProfileViewCounter username={profile.username} />
       <main className="public-shell">
         <p className="public-top-note">Meet {profile.display_name} <span aria-hidden="true">👋</span></p>
         <ProfileCard profile={profile} />

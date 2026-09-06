@@ -146,9 +146,45 @@ export async function buildApp(dependencies: AppDependencies) {
     return { data: await profiles.removePhoto(user.userId) };
   });
 
+  app.delete("/api/v1/profiles/me", { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.deleteMine(user.userId) };
+  });
+
+  app.post("/api/v1/profiles/me/restore", { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } }, async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.restoreMine(user.userId) };
+  });
+
+  /** Lets the web app offer recovery to someone whose profile is awaiting purge. */
+  app.get("/api/v1/profiles/me/deletion", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.pendingDeletion(user.userId) };
+  });
+
+  app.get("/api/v1/profiles/me/views", async (request) => {
+    const user = await authenticatedUser(request.headers.authorization);
+    return { data: await profiles.viewSummaryForOwner(user.userId) };
+  });
+
   app.get("/api/v1/public/profiles/:username", async (request) => {
     const { username } = publicUsernameParamsSchema.parse(request.params);
     return { data: await profiles.getPublic(username) };
+  });
+
+  /**
+   * Counts one open of a public profile. Called from the browser after the page loads,
+   * which is what keeps crawlers and link previews out of the number. Nothing about the
+   * visitor is recorded, so no authentication is required or wanted.
+   */
+  app.post("/api/v1/public/profiles/:username/view", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request) => {
+    const { username } = publicUsernameParamsSchema.parse(request.params);
+    return { data: await profiles.recordPublicView(username) };
+  });
+
+  /** Only profiles whose owners opted into search listing. */
+  app.get("/api/v1/public/profiles", async () => {
+    return { data: await profiles.searchableProfiles() };
   });
 
   app.get("/api/v1/nearby", async (request) => {

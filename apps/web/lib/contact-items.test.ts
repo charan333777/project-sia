@@ -5,7 +5,7 @@ import { fieldStep, pruneEmptyContactItems } from "./contact-items.js";
 const base: ProfileInput = {
   username: "zach", display_name: "Zach", role: "", bio: "", current_context: "",
   interests: [], open_to: [], is_public: false, profile_theme: "calm",
-  profile_character: "plain", contact_items: [],
+  profile_character: "plain", contact_items: [], list_in_search: false,
 };
 
 describe("pruneEmptyContactItems", () => {

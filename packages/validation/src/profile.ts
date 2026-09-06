@@ -201,6 +201,12 @@ export const profileInputSchema = z.object({
   profile_theme: z.enum(profileThemes).default("calm"),
   profile_character: z.enum(profileCharacters).default("plain"),
   contact_items: contactItemsSchema,
+  /**
+   * Separate from `is_public`: public means "reachable by link", listed means "indexed in
+   * a machine-readable directory of every profile". Defaults off so nobody is enumerated
+   * by accident.
+   */
+  list_in_search: z.boolean().default(false),
 });
 
 export const profileUpdateSchema = profileInputSchema.partial();
@@ -237,10 +243,33 @@ export type ProfileStatus = {
   detail: string;
 };
 
+/** Days a deleted profile is kept before it is purged and its username retired. */
+export const profileDeletionGraceDays = 30;
+
+export function profilePurgeDueAt(deletedAt: string | Date) {
+  const from = typeof deletedAt === "string" ? new Date(deletedAt) : deletedAt;
+  return new Date(from.getTime() + profileDeletionGraceDays * 24 * 60 * 60_000);
+}
+
+/** A deleted profile is restorable only while it is still inside the grace window. */
+export function isProfileRestorable(deletedAt: string | null, now: Date = new Date()) {
+  if (!deletedAt) return false;
+  return profilePurgeDueAt(deletedAt).getTime() > now.getTime();
+}
+
+export type ProfileViewSummary = {
+  /** Every counted open since the profile was created. */
+  total: number;
+  last_7_days: number;
+  last_30_days: number;
+};
+
 export type StoredProfile = ProfileInput & {
   id: string;
   user_id: string;
   avatar_path: string | null;
+  /** Null while the account is live; set the moment deletion is confirmed. */
+  deleted_at: string | null;
   status_state: ProfileStatusState;
   status_duration: ProfileStatusDuration | null;
   status_expires_at: string | null;

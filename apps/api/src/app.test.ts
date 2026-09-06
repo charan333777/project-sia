@@ -35,6 +35,7 @@ class MemoryProfiles implements ProfileRepository {
       user_id: userId,
       avatar_path: null,
       contact_items: input.contact_items ?? [],
+      deleted_at: null,
       status_state: "off",
       status_duration: null,
       status_expires_at: null,
@@ -45,12 +46,14 @@ class MemoryProfiles implements ProfileRepository {
     return profile;
   }
 
-  async findByUserId(userId: string) {
-    return this.records.find((profile) => profile.user_id === userId) ?? null;
+  async findByUserId(userId: string, includeDeleted = false) {
+    const found = this.records.find((profile) => profile.user_id === userId) ?? null;
+    if (!found) return null;
+    return includeDeleted || !found.deleted_at ? found : null;
   }
 
   async findPublicByUsername(username: string) {
-    return this.records.find((profile) => profile.username === username && profile.is_public) ?? null;
+    return this.records.find((p) => p.username === username && p.is_public && !p.deleted_at) ?? null;
   }
 
   async update(userId: string, input: ProfileInput) {
@@ -69,6 +72,52 @@ class MemoryProfiles implements ProfileRepository {
     const updated = { ...existing, avatar_path: avatarPath, updated_at: new Date().toISOString() };
     this.records[index] = updated;
     return updated;
+  }
+
+  retiredUsernames = new Set<string>();
+  views = new Map<string, number>();
+
+  async softDelete(userId: string) {
+    const index = this.records.findIndex((p) => p.user_id === userId && !p.deleted_at);
+    if (index < 0) return null;
+    const updated = { ...this.records[index]!, deleted_at: new Date().toISOString() };
+    this.records[index] = updated;
+    return updated;
+  }
+
+  async restore(userId: string) {
+    const index = this.records.findIndex((p) => p.user_id === userId && p.deleted_at);
+    if (index < 0) return null;
+    const updated = { ...this.records[index]!, deleted_at: null };
+    this.records[index] = updated;
+    return updated;
+  }
+
+  async isUsernameRetired(username: string) {
+    return this.retiredUsernames.has(username);
+  }
+
+  async purgeDeleted(graceDays: number) {
+    const cutoff = Date.now() - graceDays * 24 * 60 * 60_000;
+    const due = this.records.filter((p) => p.deleted_at && new Date(p.deleted_at).getTime() <= cutoff);
+    for (const profile of due) this.retiredUsernames.add(profile.username);
+    this.records = this.records.filter((p) => !due.includes(p));
+    return due.map((p) => p.avatar_path).filter((path): path is string => Boolean(path));
+  }
+
+  async recordView(profileId: string) {
+    this.views.set(profileId, (this.views.get(profileId) ?? 0) + 1);
+  }
+
+  async viewSummary(profileId: string) {
+    const total = this.views.get(profileId) ?? 0;
+    return { total, last_7_days: total, last_30_days: total };
+  }
+
+  async listSearchableUsernames() {
+    return this.records
+      .filter((p) => p.list_in_search && p.is_public && !p.deleted_at)
+      .map((p) => ({ username: p.username, updated_at: p.updated_at }));
   }
 
   async updateStatus(userId: string, patch: ProfileStatusPatch) {
@@ -135,6 +184,7 @@ const input = {
   profile_theme: "calm" as const,
   profile_character: "elephant" as const,
   contact_items: [],
+  list_in_search: false,
 };
 
 describe("profile API", () => {
@@ -241,6 +291,75 @@ describe("profile API", () => {
     });
     const scanned = await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" });
     expect(scanned.json().data.contact_items).toEqual([]);
+  });
+
+  it("hides a deleted profile everywhere at once, and can bring it back", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    const deleted = await app.inject({ method: "DELETE", url: "/api/v1/profiles/me", headers });
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().data.grace_days).toBe(30);
+
+    // Gone from the scanner's view and from the owner's, immediately — not on a sweep.
+    expect((await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" })).statusCode).toBe(404);
+    expect((await app.inject({ method: "GET", url: "/api/v1/profiles/me", headers })).statusCode).toBe(404);
+
+    const pending = await app.inject({ method: "GET", url: "/api/v1/profiles/me/deletion", headers });
+    expect(pending.json().data.restorable).toBe(true);
+
+    const restored = await app.inject({ method: "POST", url: "/api/v1/profiles/me/restore", headers });
+    expect(restored.statusCode).toBe(200);
+    expect((await app.inject({ method: "GET", url: "/api/v1/public/profiles/zach" })).statusCode).toBe(200);
+  });
+
+  it("refuses writes to a profile that is awaiting purge", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    await app.inject({ method: "DELETE", url: "/api/v1/profiles/me", headers });
+
+    const edit = await app.inject({ method: "PATCH", url: "/api/v1/profiles/me", headers, payload: { bio: "Back again" } });
+    expect(edit.statusCode).toBe(404);
+  });
+
+  it("never reissues the username of a purged account", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    await app.inject({ method: "DELETE", url: "/api/v1/profiles/me", headers });
+
+    // Age the deletion past the grace window and let the sweep run.
+    const record = repository.records[0]!;
+    record.deleted_at = new Date(Date.now() - 31 * 24 * 60 * 60_000).toISOString();
+    await repository.purgeDeleted(30);
+    expect(repository.records).toHaveLength(0);
+
+    // A printed card pointing at /u/zach must never resolve to somebody else.
+    const reuse = await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+    expect(reuse.statusCode).toBe(409);
+    expect(reuse.json().error.code).toBe("USERNAME_TAKEN");
+  });
+
+  it("counts a public view without recording anything about the visitor", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    await app.inject({ method: "POST", url: "/api/v1/public/profiles/zach/view" });
+    await app.inject({ method: "POST", url: "/api/v1/public/profiles/zach/view" });
+
+    const summary = await app.inject({ method: "GET", url: "/api/v1/profiles/me/views", headers });
+    expect(summary.json().data.total).toBe(2);
+  });
+
+  it("lists only profiles whose owners opted into search", async () => {
+    const headers = { authorization: "Bearer valid" };
+    await app.inject({ method: "POST", url: "/api/v1/profiles", headers, payload: input });
+
+    const hidden = await app.inject({ method: "GET", url: "/api/v1/public/profiles" });
+    expect(hidden.json().data).toEqual([]);
+
+    await app.inject({ method: "PATCH", url: "/api/v1/profiles/me", headers, payload: { list_in_search: true } });
+    const listed = await app.inject({ method: "GET", url: "/api/v1/public/profiles" });
+    expect(listed.json().data.map((row: { username: string }) => row.username)).toEqual(["zach"]);
   });
 
   it("returns a friendly 404 for a missing public profile", async () => {

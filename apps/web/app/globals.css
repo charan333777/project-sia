@@ -250,6 +250,41 @@ button { color: inherit; }
   .contact-editor-value { grid-column: 1 / -1; grid-row: 2; }
 }
 
+/* Views, deletion, search listing and the legal pages */
+.views-panel { width: 100%; margin-top: 14px; padding: 14px 16px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.views-icon { flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--brand-dark); background: var(--brand-soft); }
+.views-panel p { margin: 0; color: var(--muted); font-size: 11px; font-weight: 740; letter-spacing: .07em; text-transform: uppercase; }
+.views-panel strong { display: block; font-size: 16px; }
+.views-panel small { color: var(--muted); font-size: 12px; }
+
+.search-listing { margin-top: 14px; padding: 13px 15px; display: flex; align-items: flex-start; gap: 11px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; }
+.search-listing input { margin-top: 2px; width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--brand); }
+.search-listing strong { display: block; font-size: 14px; }
+.search-listing small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+.danger-zone { margin-top: 30px; padding: 18px; border: 1px solid #e8cdcd; border-radius: 18px; background: #fdf6f5; }
+.danger-heading { display: flex; align-items: center; gap: 11px; margin-bottom: 14px; }
+.danger-icon { flex: 0 0 auto; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--danger); background: #f7e4e4; }
+.danger-heading strong { display: block; font-size: 15px; }
+.danger-heading small { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
+.danger-button { border-color: #e0b9b9; color: var(--danger); }
+.danger-button:not(:disabled):hover { background: #f7e4e4; border-color: #d3a3a3; }
+.danger-facts { margin: 0 0 16px; padding-left: 19px; color: #5c4b4b; font-size: 13px; line-height: 1.65; }
+.danger-facts li + li { margin-top: 5px; }
+.danger-label { display: block; margin-bottom: 6px; font-size: 13px; }
+.danger-input { width: 100%; padding: 11px 13px; font-size: 15px; border: 1px solid #e0b9b9; border-radius: 11px; background: var(--surface); color: inherit; }
+.danger-input:focus-visible { outline: 2px solid var(--danger); outline-offset: 1px; }
+.danger-actions { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 9px; justify-content: flex-end; }
+
+.legal-shell { max-width: 740px; margin: auto; }
+.legal-updated { margin-top: 8px; color: var(--muted); font-size: 13px; }
+.legal-draft { margin: 0 0 26px; padding: 13px 15px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid #efd9ab; border-radius: 12px; background: #fbf3e2; color: #755224; font-size: 13px; line-height: 1.55; }
+.legal-shell section { margin-top: 32px; }
+.legal-shell h2 { margin: 0 0 11px; font-family: var(--font-serif); font-size: 24px; font-weight: 560; }
+.legal-shell p { margin: 0 0 13px; color: #44423f; line-height: 1.75; }
+.legal-shell ul { margin: 0 0 13px; padding-left: 21px; color: #44423f; line-height: 1.75; }
+.legal-shell li + li { margin-top: 7px; }
+
 .public-shell { max-width: 750px; margin: auto; padding: 54px 22px 90px; }
 .public-top-note { margin: 0 0 15px; color: var(--muted); text-align: center; font-size: 13px; }
 .viral-card { margin-top: 20px; padding: 29px; background: #eee7dc; border: 1px solid #e2d8ca; border-radius: 22px; text-align: center; }
