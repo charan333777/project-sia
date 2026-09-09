@@ -1,7 +1,7 @@
 # Sia — project overview
 
 The single place to understand what Sia is and where it stands. Read this before opening source
-files. Last verified: 2026-09-04.
+files. Last verified: 2026-09-09.
 
 ## What Sia is
 
@@ -40,7 +40,7 @@ secrets are recorded here or anywhere in the repo.
 | Profile create / edit / public view | Done | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/app/u/[username]/page.tsx` |
 | Profile status | Built, not yet deployed — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx` |
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
-| Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists | `apps/web/lib/profile-photo-draft.ts`, `apps/web/app/login/page.tsx` |
+| Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists. A draft is written only while signed out, and a failure is classified so an unrepeatable one is dropped rather than replayed forever | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx` |
 | QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx` |
 | Account deletion | Done — 30-day soft delete, hidden immediately, username retired permanently on purge | `apps/api/src/services/profile-service.ts`, `apps/web/components/delete-account.tsx`, `apps/web/app/profile/deleted/page.tsx` |
 | Scan counts | Done — per-day integer per profile, counted from the browser so crawlers do not inflate it | `apps/web/components/profile-view-counter.tsx`, `apps/web/components/profile-views.tsx` |
@@ -139,6 +139,11 @@ server-only credential. Columns and constraints: [database schema](../database/s
   so a row awaiting purge is never served; the 30-day sweep performs the erasure. A **retired
   username is never reissued** — printed cards outlive accounts, and a reused name would point
   strangers at someone else.
+- A draft is written **only while signed out**. It exists to survive the trip through
+  authentication, so a copy written while already signed in is one `/login` replays on every later
+  visit. A hand-off failure is classified by status in `apps/web/lib/profile-handoff.ts`: a 4xx is
+  terminal and the draft is dropped, 408/429/5xx keeps it for a real retry, and a 401 earns exactly
+  one silent token refresh. Retrying a draft that can never succeed is what makes an error permanent.
 - Scan counts hold **an integer and a date, per profile**. There is nowhere in the schema to record a
   visitor, and counting happens in the browser so crawlers and link previews stay out of the number.
 - **Listed is not the same as public.** `list_in_search` is a separate opt-in, default false; only
@@ -151,9 +156,10 @@ server-only credential. Columns and constraints: [database schema](../database/s
 
 Facts, not recommendations:
 
-- Web coverage is narrow but real — `@sia/web` runs `vitest run` in jsdom over the profile form and
-  its helpers. Other components, the QR page and the public profile have no rendering tests yet.
-  Coverage elsewhere is validation schemas plus API route tests against fake providers.
+- Web coverage is narrow but real — `@sia/web` runs `vitest run` in jsdom over the profile form, the
+  login hand-off and their helpers. Other components, the QR page and the public profile have no
+  rendering tests yet. Coverage elsewhere is validation schemas plus API route tests against fake
+  providers.
 - Root `CHANGELOG.md` still describes 1.0.0 only; it predates themes, characters, photos, Nearby and
   the SEO pass.
 - Empty leftover route folders: `apps/web/app/nearby-qa/` and `apps/web/app/qr-personality-demo/`.

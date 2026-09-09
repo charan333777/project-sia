@@ -18,8 +18,11 @@ export default function CreatePage() {
   const submit = async (profile: ProfileInput, photoChange: ProfilePhotoChange) => {
     setSubmitting(true);
     setError("");
-    sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(profile));
     if (!session) {
+      // A draft exists only to survive the trip through authentication. Writing one while
+      // signed in leaves a copy behind that `/login` replays on every later visit, which
+      // is how a single failure here became an error nobody could get past.
+      sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(profile));
       try {
         if (photoChange.action === "upload") await saveProfilePhotoDraft(photoChange.photo);
         else await clearProfilePhotoDraft();

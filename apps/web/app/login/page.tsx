@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/button";
 import { TextField } from "@/components/field";
 import { api, ApiRequestError } from "@/lib/api";
+import { classifyHandoffError, handoffErrorMessage, type HandoffOutcome } from "@/lib/profile-handoff";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { clearProfilePhotoDraft, loadProfilePhotoDraft } from "@/lib/profile-photo-draft";
 
@@ -45,7 +46,7 @@ function friendlyAuthError(caught: unknown) {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { session, loading: authLoading } = useAuth();
+  const { session, loading: authLoading, signOut } = useAuth();
   const finishingRef = useRef(false);
   const [mode, setMode] = useState<"signup" | "login">(searchParams.get("from") === "create" ? "signup" : "login");
   const [forgot, setForgot] = useState(false);
@@ -59,51 +60,94 @@ function LoginForm() {
   const supabase = getSupabaseBrowserClient();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
 
+  /** Lets the draft go for good — once it has been saved, or once it never can be. */
+  const discardDraft = useCallback(async () => {
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    setHasDraft(false);
+    await clearProfilePhotoDraft().catch(() => undefined);
+  }, []);
+
+  /**
+   * The profile is already saved by the time this runs, so the photo is an optional
+   * extra: neither a blocked IndexedDB nor a rejected upload may cost someone the
+   * profile itself. Returns a sentence to show when the photo did not make it.
+   */
+  const attachDraftPhoto = useCallback(async (accessToken: string) => {
+    let photo: Blob | undefined;
+    try {
+      photo = await loadProfilePhotoDraft();
+    } catch {
+      return "We couldn’t read the photo you chose.";
+    }
+    if (!photo) return null;
+    try {
+      await api.uploadProfilePhoto(photo, accessToken);
+      return null;
+    } catch (caught) {
+      return handoffErrorMessage(caught);
+    }
+  }, []);
+
   const finish = useCallback(async (accessToken: string) => {
-    if (finishingRef.current) return;
+    if (finishingRef.current) return null;
     finishingRef.current = true;
     try {
       const rawDraft = sessionStorage.getItem(PROFILE_DRAFT_KEY);
-      if (!rawDraft) { router.replace("/profile"); return; }
+      if (!rawDraft) { router.replace("/profile"); return null; }
       const draft = profileInputSchema.parse(JSON.parse(rawDraft));
       try {
         await api.createProfile(draft, accessToken);
       } catch (caught) {
         if (!(caught instanceof ApiRequestError && caught.code === "PROFILE_EXISTS")) throw caught;
       }
-      const draftPhoto = await loadProfilePhotoDraft();
-      if (draftPhoto) await api.uploadProfilePhoto(draftPhoto, accessToken);
-      sessionStorage.removeItem(PROFILE_DRAFT_KEY);
-      await clearProfilePhotoDraft().catch(() => undefined);
-      router.replace("/profile?created=1");
+      const photoProblem = await attachDraftPhoto(accessToken);
+      await discardDraft();
+      if (!photoProblem) router.replace("/profile?created=1");
+      return photoProblem;
     } catch (caught) {
       finishingRef.current = false;
       throw caught;
     }
-  }, [router]);
+  }, [attachDraftPhoto, discardDraft, router]);
 
   useEffect(() => {
     setHasDraft(Boolean(sessionStorage.getItem(PROFILE_DRAFT_KEY)));
   }, []);
 
-  const [handoffFailed, setHandoffFailed] = useState(false);
+  // `partial` is a success with a caveat: the profile is saved, the photo is not.
+  const [handoff, setHandoff] = useState<{ kind: HandoffOutcome | "partial"; message: string } | null>(null);
 
-  const runHandoff = useCallback((accessToken: string) => {
-    setLoading(true); setError(""); setMessage(""); setHandoffFailed(false);
-    void finish(accessToken)
-      .catch((caught) => {
-        setError(friendlyAuthError(caught));
-        // The session is real even though the hand-off failed, so offer a way forward
-        // instead of leaving someone signed in and stuck looking at an error.
-        setHandoffFailed(true);
-      })
-      .finally(() => setLoading(false));
-  }, [finish]);
+  const runHandoff = useCallback(async (accessToken: string) => {
+    setLoading(true); setError(""); setMessage(""); setHandoff(null);
+    let token = accessToken;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const photoProblem = await finish(token);
+        if (photoProblem) setHandoff({ kind: "partial", message: photoProblem });
+        break;
+      } catch (caught) {
+        const outcome = classifyHandoffError(caught);
+        // A dead access token is worth exactly one silent refresh. Retrying with the
+        // same one is what turned this screen into a loop nobody could leave.
+        if (outcome === "reauth" && attempt === 0 && supabase) {
+          const refreshed = await supabase.auth.refreshSession().catch(() => null);
+          const nextToken = refreshed?.data.session?.access_token;
+          if (nextToken) { token = nextToken; continue; }
+        }
+        // Nothing about this draft can succeed on a retry, so let it go rather than
+        // leave someone to meet the same error on every visit to this page.
+        if (outcome === "terminal") await discardDraft();
+        setHandoff({ kind: outcome, message: handoffErrorMessage(caught) });
+        break;
+      }
+    }
+    setLoading(false);
+  }, [discardDraft, finish, supabase]);
 
   useEffect(() => {
-    if (authLoading || !session || finishingRef.current || handoffFailed) return;
-    runHandoff(session.access_token);
-  }, [authLoading, handoffFailed, runHandoff, session]);
+    if (authLoading || !session || finishingRef.current || handoff) return;
+    void runHandoff(session.access_token);
+  }, [authLoading, handoff, runHandoff, session]);
 
   const signInWithGoogle = async () => {
     if (!supabase) return;
@@ -135,8 +179,8 @@ function LoginForm() {
         ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${siteUrl}/login` } })
         : await supabase.auth.signInWithPassword({ email, password });
       if (result.error) throw result.error;
-      if (result.data.session) await finish(result.data.session.access_token);
-      else setMessage("Confirm your email, then come back here. Your Sia is safe.");
+      if (result.data.session) { await runHandoff(result.data.session.access_token); return; }
+      setMessage("Confirm your email, then come back here. Your Sia is safe.");
     } catch (caught) {
       setError(friendlyAuthError(caught));
     } finally { setLoading(false); }
@@ -181,12 +225,35 @@ function LoginForm() {
 
       {!supabase ? (
         <p className="config-message" role="status">Authentication isn’t ready yet.</p>
-      ) : handoffFailed && session ? (
+      ) : handoff && session ? (
         <div className="auth-success" role="status">
           <span><MailCheck /></span>
-          <h2>Almost there</h2>
-          <p>You’re signed in, but we couldn’t finish setting up your Sia. {error}</p>
-          <Button type="button" loading={loading} onClick={() => runHandoff(session.access_token)}>Try again <ArrowRight size={17} /></Button>
+          {handoff.kind === "partial" ? (
+            <>
+              <h2>Your Sia is saved</h2>
+              <p>We couldn’t add your photo. {handoff.message} You can add it any time from Edit.</p>
+              <Button type="button" onClick={() => router.replace("/profile?created=1")}>Continue <ArrowRight size={17} /></Button>
+            </>
+          ) : handoff.kind === "reauth" ? (
+            <>
+              <h2>Please log in again</h2>
+              <p>Your session ran out before we could finish. {handoff.message} Your Sia is still safe.</p>
+              <Button type="button" loading={loading} onClick={() => void signOut().then(() => setHandoff(null))}>Log in again <ArrowRight size={17} /></Button>
+            </>
+          ) : handoff.kind === "terminal" ? (
+            <>
+              <h2>We couldn’t save those details</h2>
+              <p>{handoff.message} We have stopped trying, so this will not greet you again — open your Sia and edit it there.</p>
+              <Button type="button" onClick={() => router.replace("/profile")}>Continue <ArrowRight size={17} /></Button>
+            </>
+          ) : (
+            <>
+              <h2>Almost there</h2>
+              <p>You’re signed in, but we couldn’t finish setting up your Sia. {handoff.message}</p>
+              <Button type="button" loading={loading} onClick={() => void runHandoff(session.access_token)}>Try again <ArrowRight size={17} /></Button>
+              <button type="button" onClick={() => { void discardDraft(); router.replace("/profile"); }}>Continue without it</button>
+            </>
+          )}
         </div>
       ) : message ? (
         <div className="auth-success" role="status">

@@ -3,6 +3,44 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-09 — The hand-off that could not be escaped
+
+Reported as "I am getting this error again": signing in showed **Almost there — you're signed in, but
+we couldn't finish setting up your Sia. That didn't work. Try again in a moment.** on every visit,
+with no way past it.
+
+**Why it recurred.** `/create` wrote the draft to `sessionStorage` before checking for a session, so
+a signed-in submit left a copy behind, and the copy was only removed on full success. `/login` then
+replayed that draft on every visit and, on failure, set `handoffFailed` without dropping it. The
+retry re-sent identical input — including the same access token — so the outcome could never change.
+Nothing in the loop could heal itself; only clearing `sessionStorage` by hand got anyone out.
+
+**Why the screen said nothing useful.** The hand-off piped its errors through `friendlyAuthError`,
+which exists to hide Supabase's library shapes and only matches Supabase's strings. Sia's own
+sentences matched none of them, so `"Please log in to continue."` and `"That username is already in
+use."` both arrived as a generic shrug. The reason was known and then discarded.
+
+**What changed.** A draft is now written only while signed out. Failures are classified by status in
+`profile-handoff.ts` — a 4xx is terminal and the draft is dropped, 408/429/5xx keeps it for a retry
+that means something, and a 401 earns exactly one silent `refreshSession` before asking for a fresh
+login. `handoffErrorMessage` shows the API's own sentence and keeps the generic line for throwables
+carrying no message. The card gained a **Continue without it** escape hatch, plus states for
+re-authentication and for partial success.
+
+**A photo no longer costs the profile.** `loadProfilePhotoDraft()` was the one draft call without a
+`.catch()`, sitting one line above `clearProfilePhotoDraft().catch(...)`, so a blocked IndexedDB
+failed a hand-off over an optional extra. Both the read and the upload are now contained: the profile
+is saved, the draft cleared, and the caveat shown rather than the whole step lost.
+
+**Tests.** Nine render tests drive the real page through jsdom against a failing API. Reverting each
+fix turns exactly its own test red — no terminal discard, the old `friendlyAuthError` path, no token
+refresh, the un-caught IndexedDB read — which is the check this log applied on 2026-09-05. One guards
+an ordering trap: a 409 is terminal by status, so the `PROFILE_EXISTS` pardon has to happen first, or
+owning a profile would discard your draft. Eight more cover the classifier directly.
+
+`apps/web/lib/profile-handoff.ts`, `apps/web/lib/profile-handoff.test.ts`,
+`apps/web/app/login/page.tsx`, `apps/web/app/login/page.test.tsx`, `apps/web/app/create/page.tsx`.
+
 ## 2026-09-05 — Deletion, scan counts, search listing, and the legal pages
 
 Four features, plus a production bug found while testing them.
