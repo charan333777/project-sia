@@ -45,7 +45,7 @@ export function ContactItemsEditor({
     <div className="contact-editor">
       <div className="contact-editor-heading">
         <strong>Ways to reach you</strong>
-        <small>Saved either way. Each one is hidden until you make it public.</small>
+        <small>Each one stays off your card until you tap <b>Hidden</b> to show it.</small>
       </div>
 
       {items.length > 0 && (

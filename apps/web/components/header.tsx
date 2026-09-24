@@ -2,6 +2,7 @@
 
 import { ChevronDown, LogIn, LogOut, MapPin, Plus, UserRound } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "./auth-provider";
 import { ButtonLink } from "./button";
@@ -9,6 +10,7 @@ import { Logo } from "./logo";
 
 export function Header() {
   const { session, loading, signOut } = useAuth();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -52,8 +54,9 @@ export function Header() {
             </>
           ) : (
             <>
-              <Link className="nav-link nav-link-icon" href="/login"><LogIn size={17} /><span>Log in</span></Link>
-              <ButtonLink href="/create" className="header-cta"><Plus size={18} /><span>Create</span></ButtonLink>
+              {/* No link to the page you are already on. */}
+              {pathname !== "/login" && <Link className="nav-link nav-link-icon" href="/login"><LogIn size={17} /><span>Log in</span></Link>}
+              {pathname !== "/create" && <ButtonLink href="/create" className="header-cta"><Plus size={18} /><span>Create</span></ButtonLink>}
             </>
           )}
         </nav>

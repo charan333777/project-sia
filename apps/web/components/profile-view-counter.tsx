@@ -16,6 +16,8 @@ import { api } from "@/lib/api";
  */
 export function ProfileViewCounter({ username }: { username: string }) {
   useEffect(() => {
+    // The owner's own "Preview" is not somebody opening their Sia.
+    if (new URLSearchParams(window.location.search).has("preview")) return;
     let cancelled = false;
     const timer = window.setTimeout(() => {
       if (!cancelled) void api.recordProfileView(username).catch(() => undefined);

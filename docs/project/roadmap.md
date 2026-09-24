@@ -10,13 +10,13 @@ Last reviewed: 2026-09-04, against the live site.
 
 ### 1. The public profile has no action — the largest gap in the product
 
-`/u/:username` currently offers exactly one thing to the person who just scanned the QR code:
-**"Create mine."** There is no way to say hello, reply, save a contact, or reach the person at all.
-Verified live on 2026-09-04: no "Say hello", "Wave", "Contact" or "Save contact" anywhere in the page.
+`/u/:username` gives the person who just scanned the QR code a way to **save** the contact (since
+2026-09-05) and an invitation to make their own — but still no way to say hello or reply. Verified
+live on 2026-09-24: no "Say hello" or "Wave" anywhere in the page.
 
-This contradicts what the marketing site promises — the homepage mock shows a **"Say hello 👋"**
-button that does not exist, and step 3 of "Three small steps" says *"Give new people an easy,
-natural way to start a conversation."*
+The homepage used to promise one: its mock showed a **"Say hello 👋"** button that does not exist.
+That sticker was replaced by a real QR code on 2026-09-24, so the site no longer over-promises —
+but the gap it pointed at is still the largest in the product.
 
 **The important part: the hello system is already built.** The API has `sendNearbySignal`,
 `respondNearbySignal`, `proposeNearbyMeet`, `respondNearbyMeet`, `sendNearbyMeetStatus`,
@@ -103,10 +103,6 @@ never been requested, which reads as "nobody uses this."
 
 Smaller, verified against the live site on 2026-09-04:
 
-- **Bio renders orphaned.** On `/u/:username` the bio appears as a bare, unlabelled line wedged
-  between the "Open to" chips and "I'm into". It should sit under the name and role.
-- **"Opening this Sia…" flash** on a page that is already server-rendered — unnecessary perceived
-  latency on the most time-sensitive screen.
 - **QR card shows no readable URL**, so a failed scan has no fallback. Print `siaqr.com/u/<name>`
   under the code.
 - **Sitemap lists 2 URLs** (`/` and `/create`); public profiles are not enumerated.

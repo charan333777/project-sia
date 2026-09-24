@@ -37,20 +37,20 @@ secrets are recorded here or anywhere in the repo.
 
 | Area | State | Primary source |
 | --- | --- | --- |
-| Profile create / edit / public view | Done | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/app/u/[username]/page.tsx` |
-| Profile status | Built, not yet deployed — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx` |
+| Profile create / edit / public view | Done — create is an 8-step wizard; on phones it fits one screen with a compact live preview on top, and "Right now" offers tap-to-fill ideas. The owner page leads with **Show my QR** above the card. On the public card, Save contact floats on phones and a "Made with Sia" invitation closes the page (all not yet deployed) | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/components/profile-preview-strip.tsx`, `apps/web/app/profile/page.tsx`, `apps/web/app/u/[username]/page.tsx` |
+| Profile status | Done, live (seen on siaqr.com 2026-09-22) — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry. While nothing is showing, the owner page offers **Open for 3h** in one tap (not yet deployed) | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx`, `apps/web/components/profile-status-nudge.tsx` |
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
-| Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists. A draft is written only while signed out, and a failure is classified so an unrepeatable one is dropped rather than replayed forever | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx` |
-| QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx` |
+| Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists. A draft is written only while signed out, and a failure is classified so an unrepeatable one goes back to `/create?resume=` to be fixed rather than replayed forever. Sign-up shows the draft's handle with "Back to edit" (not yet deployed) | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx`, `apps/web/app/create/page.tsx` |
+| QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster. The on-screen card shows the live status or "right now" line and the poster shows **Open to**; the QR page offers Add to Home Screen, and the installed app opens straight to it (not yet deployed) | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx`, `apps/web/lib/qr-poster.ts`, `apps/web/components/home-screen-tip.tsx`, `apps/web/app/manifest.ts` |
 | Account deletion | Done — 30-day soft delete, hidden immediately, username retired permanently on purge | `apps/api/src/services/profile-service.ts`, `apps/web/components/delete-account.tsx`, `apps/web/app/profile/deleted/page.tsx` |
-| Scan counts | Done — per-day integer per profile, counted from the browser so crawlers do not inflate it | `apps/web/components/profile-view-counter.tsx`, `apps/web/components/profile-views.tsx` |
+| Scan counts | Done — per-day integer per profile, counted from the browser so crawlers do not inflate it; the owner's own `?preview=1` is not counted (not yet deployed) | `apps/web/components/profile-view-counter.tsx`, `apps/web/components/profile-views.tsx` |
 | Terms & privacy | Pages published; controller and governing-law details are placeholders in `apps/web/lib/legal.ts` | `apps/web/app/privacy/page.tsx`, `apps/web/app/terms/page.tsx` |
 | Search listing | Done — per-profile opt-in, default off; only opted-in profiles enter `sitemap.xml` | `apps/web/app/sitemap.ts` |
 | Contact card | Done — up to 8 links/emails/phones, each published or hidden individually; copy and vCard export on the public card | `packages/validation/src/profile.ts`, `apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`, `apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts` |
 | Personalisation | Done — 4 themes (calm/warm/bold/play), 5 characters (plain/puppy/elephant/panda/play) | `apps/web/components/profile-themes.ts`, `apps/web/components/profile-characters.ts`, `apps/web/public/mascots/` |
 | Profile photos | Done — private bucket, file-signature check, EXIF/XMP/IPTC stripped server-side, 1-hour signed URLs | `apps/api/src/services/profile-photo-storage.ts` |
 | Nearby | Done — opt-in presence, 200 m PostGIS search, preset Waves, 2-hour connections, Meet Cards, blocks, reports | `apps/api/src/services/nearby-service.ts`, `apps/api/src/repositories/postgres-nearby-repository.ts`, `apps/web/components/nearby-experience.tsx` |
-| SEO / discoverability | Done — metadata, OG images, sitemap, robots, web manifest, JSON-LD (Organization, WebSite, SoftwareApplication, FAQPage, ProfilePage) | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/sitemap.ts`, `apps/web/lib/site.ts` |
+| SEO / discoverability | Done — metadata, OG images, sitemap, robots, web manifest, JSON-LD (Organization, WebSite, SoftwareApplication, FAQPage, ProfilePage). A missing profile returns a real 404, and home-screen icons are PNG (not yet deployed) | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/sitemap.ts`, `apps/web/lib/site.ts` |
 
 ## How Nearby works
 
@@ -129,6 +129,11 @@ server-only credential. Columns and constraints: [database schema](../database/s
   mascots and colour are decoration outside the panel only — see
   [the QR prototype decision](../design/sia-elephant-qr-final-prototype.md).
 - `/nearby` is `noindex`; public profiles at `/u/:username` are indexable.
+- **No `loading.tsx` above `/u/[username]`.** A Suspense boundary there sends the 200 before
+  `notFound()` runs, so a missing profile answers 200 again. `app/loading.tsx` was removed for this;
+  `/u/[username]` is the only page that loads data on the server.
+- The manifest's `start_url` is `/profile/qr`, so its **`scope` must stay `/`** — left out, it defaults
+  to `/profile/` and the rest of Sia opens outside the installed app.
 - A contact detail is **stored and published separately**. `is_public` defaults to false on every
   entry, and `getPublic` strips hidden ones before the profile leaves the API — so a hidden phone
   number is absent from the response, not merely unrendered. Anything built on a public profile
@@ -142,8 +147,13 @@ server-only credential. Columns and constraints: [database schema](../database/s
 - A draft is written **only while signed out**. It exists to survive the trip through
   authentication, so a copy written while already signed in is one `/login` replays on every later
   visit. A hand-off failure is classified by status in `apps/web/lib/profile-handoff.ts`: a 4xx is
-  terminal and the draft is dropped, 408/429/5xx keeps it for a real retry, and a 401 earns exactly
-  one silent token refresh. Retrying a draft that can never succeed is what makes an error permanent.
+  terminal, 408/429/5xx keeps the draft for a real retry, and a 401 earns exactly one silent token
+  refresh. A terminal draft is never replayed: `/login` sends it to `/create?resume=username|details`,
+  which lifts it out of storage into the form. `PROFILE_EXISTS` is the exception — the existing Sia,
+  photo included, is left untouched and the draft is dropped. Retrying a draft that can never
+  succeed is what makes an error permanent.
+- `/login?next=` accepts **same-site paths only** (`apps/web/lib/next-path.ts`), and keeps the
+  destination in sessionStorage across the Google round trip, because OAuth returns to a bare `/login`.
 - Scan counts hold **an integer and a date, per profile**. There is nowhere in the schema to record a
   visitor, and counting happens in the browser so crawlers and link previews stay out of the number.
 - **Listed is not the same as public.** `list_in_search` is a separate opt-in, default false; only

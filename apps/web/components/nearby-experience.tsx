@@ -391,12 +391,19 @@ export function NearbyExperience() {
           <h1>Nearby</h1>
           <p>Find people who are open to meeting—without exact pins.</p>
         </div>
-        <div className="nearby-presence" aria-label={`${snapshot.people.length} people nearby`}>
-          <div className="nearby-avatar-stack" aria-hidden="true">
-            {snapshot.people.slice(0, 3).map((person) => <span className={`nearby-stack-${person.tone}`} key={person.profile_id}>{person.display_name.slice(0, 1)}</span>)}
+        {/* While hidden there is nothing to count, and "0 nearby" reads as "nobody is here". */}
+        {snapshot.presence.active ? (
+          <div className="nearby-presence" aria-label={`${snapshot.people.length} people nearby`}>
+            <div className="nearby-avatar-stack" aria-hidden="true">
+              {snapshot.people.slice(0, 3).map((person) => <span className={`nearby-stack-${person.tone}`} key={person.profile_id}>{person.display_name.slice(0, 1)}</span>)}
+            </div>
+            <div><strong>{snapshot.people.length} nearby</strong><span>{snapshot.people.filter((person) => person.match_count > 0).length} match your interests</span></div>
           </div>
-          <div><strong>{snapshot.people.length} nearby</strong><span>{snapshot.people.filter((person) => person.match_count > 0).length} match your interests</span></div>
-        </div>
+        ) : (
+          <div className="nearby-presence">
+            <div><strong>Who’s around?</strong><span>Switch on below to find out</span></div>
+          </div>
+        )}
       </div>
 
       {(error || notice) && <div className={`nearby-alert ${error ? "nearby-alert-error" : "nearby-alert-success"}`} role="status">{error ? <AlertCircle size={17} /> : <Check size={17} />}<span>{error || notice}</span></div>}

@@ -1,30 +1,19 @@
 "use client";
 
 import { ArrowLeft, Check, Download, Expand, LockKeyhole, Palette, Share2 } from "lucide-react";
-import type { Profile, ProfileCharacter, ProfileTheme } from "@sia/validation";
+import type { ProfileCharacter, ProfileTheme } from "@sia/validation";
 import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/button";
+import { HomeScreenTip } from "@/components/home-screen-tip";
 import { LoadingState } from "@/components/loading-state";
 import { ProfileCharacterPicker } from "@/components/profile-character-picker";
 import { getProfileCharacter, getProfileCharacterOption } from "@/components/profile-characters";
 import { ProfileThemePicker } from "@/components/profile-theme-picker";
-import { getProfileTheme, profileThemeOptions } from "@/components/profile-themes";
+import { getProfileTheme } from "@/components/profile-themes";
 import { QrViewer } from "@/components/qr-viewer";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
 import { api } from "@/lib/api";
-
-const svgNamespace = "http://www.w3.org/2000/svg";
-
-function appendSvgElement<K extends keyof SVGElementTagNameMap>(
-  parent: SVGElement,
-  tag: K,
-  attributes: Record<string, string>,
-) {
-  const element = document.createElementNS(svgNamespace, tag);
-  for (const [name, value] of Object.entries(attributes)) element.setAttribute(name, value);
-  parent.appendChild(element);
-  return element;
-}
+import { buildQrPoster } from "@/lib/qr-poster";
 
 async function imageAssetToDataUrl(path: string) {
   const response = await fetch(path);
@@ -36,73 +25,6 @@ async function imageAssetToDataUrl(path: string) {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
-}
-
-function addPosterCharacterFrame(poster: SVGElement, characterId: ProfileCharacter, soft: string, accent: string) {
-  if (characterId === "plain") return;
-  if (characterId === "panda") {
-    appendSvgElement(poster, "circle", { cx: "174", cy: "275", r: "104", fill: "#272832", opacity: ".94" });
-    appendSvgElement(poster, "circle", { cx: "906", cy: "275", r: "104", fill: "#272832", opacity: ".94" });
-    return;
-  }
-  if (characterId === "play") {
-    appendSvgElement(poster, "circle", { cx: "112", cy: "420", r: "34", fill: accent, opacity: ".65" });
-    appendSvgElement(poster, "circle", { cx: "968", cy: "710", r: "46", fill: soft, opacity: ".92" });
-    return;
-  }
-  const isPuppy = characterId === "puppy";
-  const fill = isPuppy ? "#D9A267" : soft;
-  appendSvgElement(poster, "ellipse", { cx: "135", cy: "570", rx: isPuppy ? "92" : "118", ry: isPuppy ? "205" : "222", fill, opacity: ".94", transform: `rotate(${isPuppy ? "10" : "4"} 135 570)` });
-  appendSvgElement(poster, "ellipse", { cx: "945", cy: "570", rx: isPuppy ? "92" : "118", ry: isPuppy ? "205" : "222", fill, opacity: ".94", transform: `rotate(${isPuppy ? "-10" : "-4"} 945 570)` });
-}
-
-function readablePosterUrl(url: string) {
-  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
-function buildQrPoster(profile: Profile, qr: SVGSVGElement, avatarDataUrl: string | null, url: string) {
-  const themeId = getProfileTheme(profile.profile_theme);
-  const theme = profileThemeOptions.find((option) => option.id === themeId) ?? profileThemeOptions[0]!;
-  const character = getProfileCharacterOption(profile.profile_character);
-  const poster = document.createElementNS(svgNamespace, "svg");
-  poster.setAttribute("xmlns", svgNamespace);
-  poster.setAttribute("viewBox", "0 0 1080 1350");
-  poster.setAttribute("width", "1080");
-  poster.setAttribute("height", "1350");
-
-  appendSvgElement(poster, "rect", { width: "1080", height: "1350", rx: "72", fill: theme.surface });
-  appendSvgElement(poster, "circle", { cx: "965", cy: "120", r: "240", fill: theme.soft, opacity: ".76" });
-  appendSvgElement(poster, "circle", { cx: "85", cy: "1230", r: "210", fill: theme.soft, opacity: ".48" });
-  const brand = appendSvgElement(poster, "text", { x: "540", y: "142", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "56", "font-weight": "700", "text-anchor": "middle" });
-  brand.textContent = "Sia";
-  if (!profile.avatar_url) addPosterCharacterFrame(poster, character.id, theme.soft, theme.accent);
-  appendSvgElement(poster, "rect", { x: "155", y: "185", width: "770", height: "770", rx: "45", fill: "#ffffff", stroke: theme.soft, "stroke-width": "5" });
-
-  const qrClone = qr.cloneNode(true) as SVGSVGElement;
-  qrClone.removeAttribute("id");
-  qrClone.setAttribute("x", "180");
-  qrClone.setAttribute("y", "210");
-  qrClone.setAttribute("width", "720");
-  qrClone.setAttribute("height", "720");
-  poster.appendChild(qrClone);
-
-  if (avatarDataUrl) {
-    appendSvgElement(poster, "circle", { cx: "540", cy: "1045", r: "82", fill: "#ffffff", stroke: theme.soft, "stroke-width": "5" });
-    if (profile.avatar_url) {
-      const definitions = appendSvgElement(poster, "defs", {});
-      const clip = appendSvgElement(definitions, "clipPath", { id: "sia-avatar-clip" });
-      appendSvgElement(clip, "circle", { cx: "540", cy: "1045", r: "68" });
-    }
-    appendSvgElement(poster, "image", { x: "472", y: "977", width: "136", height: "136", href: avatarDataUrl, preserveAspectRatio: profile.avatar_url ? "xMidYMid slice" : "xMidYMid meet", ...(profile.avatar_url ? { "clip-path": "url(#sia-avatar-clip)" } : {}) });
-  }
-  const name = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1190" : "1095", fill: theme.ink, "font-family": "Georgia, serif", "font-size": "78", "font-weight": "600", "text-anchor": "middle" });
-  name.textContent = profile.display_name;
-  const invitation = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1262" : "1172", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "38", "font-weight": "600", "text-anchor": "middle" });
-  invitation.textContent = `Scan to meet ${profile.display_name}`;
-  // The printed card is the case where a failed scan has no recourse at all.
-  const address = appendSvgElement(poster, "text", { x: "540", y: avatarDataUrl ? "1318" : "1265", fill: theme.ink, "font-family": "Arial, sans-serif", "font-size": "30", "text-anchor": "middle", opacity: ".62" });
-  address.textContent = readablePosterUrl(url);
-  return poster;
 }
 
 export default function QrPage() {
@@ -222,6 +144,7 @@ export default function QrPage() {
           <ProfileThemePicker value={getProfileTheme(profile.profile_theme)} onChange={(theme) => void chooseTheme(theme)} disabled={savingStyle} />
         </section>
       )}
+      <HomeScreenTip />
       <p className="copy-status" role="status">{status ? <><Check size={14} /> {status}</> : ""}</p>
       <div className="qr-actions"><ButtonLink href="/profile" variant="quiet"><ArrowLeft size={17} /> Profile</ButtonLink></div>
     </main>

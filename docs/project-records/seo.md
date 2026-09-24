@@ -81,7 +81,7 @@ Profile structured data uses only information that is already shown on the publi
 
 - Reworked the homepage introduction so it clearly mentions a digital profile and personal QR code.
 - Expanded the three-step explanation with useful, natural-language descriptions.
-- Added a visible FAQ covering the product, app-free QR scanning, profile privacy, and approximate Nearby location.
+- Added a visible FAQ covering the product, app-free QR scanning, profile privacy, and approximate Nearby location. The answers sit in collapsed `<details>` dropdowns, so they remain in the page HTML.
 - Added descriptive internal footer links.
 - Added a branded global social preview image.
 - Added dynamically generated, personalized social preview images for public profiles.
@@ -167,3 +167,4 @@ Local Lighthouse scores are evidence that the implementation is healthy, but pro
 | --- | --- |
 | 3 September 2026 | Implemented the initial SEO foundation and completed local validation. |
 | 4 September 2026 | Added this project record for future contributors. |
+| 18 September 2026 | Homepage FAQ shows questions only; answers open as `<details>` dropdowns and stay server-rendered. |

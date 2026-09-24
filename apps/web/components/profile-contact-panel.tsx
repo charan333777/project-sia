@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Check, ChevronRight, Copy, ContactRound, Globe2, Mail, Phone } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ContactItem, Profile } from "@sia/validation";
 import { buildVCard, vCardFileName } from "@/lib/vcard";
 
@@ -47,12 +47,27 @@ export function ProfileContactPanel({
 }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [saveError, setSaveError] = useState("");
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const [saveAhead, setSaveAhead] = useState(false);
 
   useEffect(() => {
     if (!copied) return;
     const timer = window.setTimeout(() => setCopied(null), 1600);
     return () => window.clearTimeout(timer);
   }, [copied]);
+
+  // On a phone the card is taller than the screen, so Save contact starts out of reach.
+  // The floating copy shows only while the real button is still further down the page;
+  // once it has been reached — or scrolled past — the page's own button is the one to use.
+  useEffect(() => {
+    const target = saveButton.current;
+    if (readOnly || !target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry) setSaveAhead(!entry.isIntersecting && entry.boundingClientRect.top > 0);
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [readOnly, items.length]);
 
   if (items.length === 0) return null;
 
@@ -122,7 +137,7 @@ export function ProfileContactPanel({
       </ul>
       {!readOnly && (
         <>
-          <button type="button" className="button button-secondary contact-save" onClick={saveContact}>
+          <button ref={saveButton} type="button" className="button button-secondary contact-save" onClick={saveContact}>
             <ContactRound size={16} /> Save contact
           </button>
           <p className="contact-note">
@@ -130,6 +145,12 @@ export function ProfileContactPanel({
             the current details.
           </p>
           <p className="contact-status" role="status">{saveError || (copied ? "Copied" : "")}</p>
+          {/* A visual shortcut to the button above, so assistive technology meets one Save, not two. */}
+          <div className={`contact-save-bar${saveAhead ? " contact-save-bar-visible" : ""}`} aria-hidden="true">
+            <button type="button" className="button button-primary" tabIndex={-1} onClick={saveContact}>
+              <ContactRound size={17} /> Save contact
+            </button>
+          </div>
         </>
       )}
     </section>

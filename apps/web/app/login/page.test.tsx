@@ -8,6 +8,7 @@ import LoginPage from "./page";
 
 const mocks = vi.hoisted(() => ({
   replace: vi.fn(),
+  search: "",
   signOut: vi.fn(async () => undefined),
   refreshSession: vi.fn(),
   loadPhoto: vi.fn(),
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), replace: mocks.replace, refresh: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mocks.search),
   usePathname: () => "/login",
 }));
 
@@ -39,6 +40,7 @@ const savedProfile = { username: "charan", display_name: "Charan" } as unknown a
 const draft = () => sessionStorage.getItem(PROFILE_DRAFT_KEY);
 
 beforeEach(() => {
+  mocks.search = "";
   sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify({ username: "charan", display_name: "Charan" }));
   mocks.session = { access_token: "stale-token" };
   mocks.loadPhoto.mockResolvedValue(undefined);
@@ -52,36 +54,39 @@ afterEach(() => {
 });
 
 describe("the profile draft hand-off", () => {
-  it("still treats an existing profile as success", async () => {
+  it("keeps an existing profile, photo included, and says so", async () => {
     // A 409 is terminal by status, so the PROFILE_EXISTS pardon has to happen first.
     vi.spyOn(api, "createProfile").mockRejectedValue(
       new ApiRequestError("PROFILE_EXISTS", "You already have a Sia profile.", 409),
     );
+    mocks.loadPhoto.mockResolvedValue(new Blob(["x"], { type: "image/webp" }));
+    const upload = vi.spyOn(api, "uploadProfilePhoto");
     render(<LoginPage />);
 
-    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/profile?created=1"));
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/profile?existing=1"));
+    expect(upload).not.toHaveBeenCalled();
     expect(draft()).toBeNull();
   });
 
-  it("shows the real reason rather than a generic shrug", async () => {
+  it("sends a taken username back to the wizard instead of dropping the draft", async () => {
     vi.spyOn(api, "createProfile").mockRejectedValue(
       new ApiRequestError("USERNAME_TAKEN", "That username is already in use.", 409),
     );
     render(<LoginPage />);
 
-    expect(await screen.findByText(/That username is already in use\./)).toBeTruthy();
-    expect(screen.queryByText(/That didn’t work\. Try again in a moment\./)).toBeNull();
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/create?resume=username"));
+    expect(draft()).not.toBeNull();
+    expect(screen.queryByText(/We have stopped trying/)).toBeNull();
   });
 
-  it("lets an unrepeatable draft go so the error cannot greet you again", async () => {
+  it("sends any other unrepeatable failure back to the wizard too", async () => {
     vi.spyOn(api, "createProfile").mockRejectedValue(
-      new ApiRequestError("USERNAME_TAKEN", "That username is already in use.", 409),
+      new ApiRequestError("VALIDATION_ERROR", "Check the highlighted fields.", 400),
     );
     render(<LoginPage />);
 
-    await screen.findByText(/That username is already in use\./);
-    await waitFor(() => expect(draft()).toBeNull());
-    expect(screen.getByRole("button", { name: /Continue/ })).toBeTruthy();
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/create?resume=details"));
+    expect(draft()).not.toBeNull();
   });
 
   it("keeps the draft when the moment was wrong, and offers a way out", async () => {
@@ -153,5 +158,42 @@ describe("the profile draft hand-off", () => {
     expect(await screen.findByText(/Your Sia is saved/)).toBeTruthy();
     expect(upload).not.toHaveBeenCalled();
     await waitFor(() => expect(draft()).toBeNull());
+  });
+});
+
+describe("returning to where someone was headed", () => {
+  it("goes back to Nearby after signing in from there", async () => {
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    mocks.search = "next=/nearby";
+    render(<LoginPage />);
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/nearby"));
+  });
+
+  it("remembers the destination across the Google round trip", async () => {
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    sessionStorage.setItem("sia-login-next", "/nearby");
+    render(<LoginPage />);
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/nearby"));
+    expect(sessionStorage.getItem("sia-login-next")).toBeNull();
+  });
+
+  it("never redirects off the site", async () => {
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    mocks.search = "next=//evil.example";
+    render(<LoginPage />);
+
+    await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/profile"));
+  });
+
+  it("speaks to someone arriving from Nearby rather than welcoming them back", () => {
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    mocks.session = null;
+    mocks.search = "next=/nearby";
+    render(<LoginPage />);
+
+    expect(screen.getByRole("heading", { name: /See who’s around/ })).toBeTruthy();
+    expect(screen.queryByText(/Good to see you/)).toBeNull();
   });
 });

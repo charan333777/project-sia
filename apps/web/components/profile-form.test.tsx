@@ -2,27 +2,34 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { ProfileInput } from "@sia/validation";
-import { ProfileForm } from "./profile-form";
+import { emptyProfile, ProfileForm } from "./profile-form";
 
 /**
  * These cover the wiring between form state and the rendered error — where both of the
  * 2026-09-05 bugs lived, and the one thing a schema unit test cannot reach.
  */
 
-/** Walks the wizard to the Connect step, where contact details are entered. */
+/** Walks the wizard to the Reach step, where contact details are entered. */
 async function openConnectStep(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Your name"), "New User");
+  await user.clear(screen.getByLabelText("Username"));
   await user.type(screen.getByLabelText("Username"), "newuser");
   await user.click(screen.getByRole("button", { name: /^Next/ }));
   await screen.findByLabelText(/What.s happening/);
   await user.click(screen.getByRole("button", { name: /^Next/ }));
+  await screen.findByRole("group", { name: /I.m into/ });
+  await user.click(screen.getByRole("button", { name: /^Next/ }));
+  await screen.findByRole("group", { name: "Open to" });
+  await user.click(screen.getByRole("button", { name: /^Next/ }));
   await screen.findByRole("button", { name: "Link" });
 }
 
-/** Advances from Connect through Style to Visibility, then chooses Public. */
+/** Advances from Reach through Look and Colour to Visibility, then chooses Public. */
 async function finishWizard(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /^Next/ }));
   await screen.findByText(/How would you like to appear/);
+  await user.click(screen.getByRole("button", { name: /^Next/ }));
+  await screen.findByText(/Choose your colour mood/);
   await user.click(screen.getByRole("button", { name: /^Next/ }));
   await screen.findByText(/Who can open your profile/);
   await user.click(screen.getByRole("radio", { name: /Public/ }));
@@ -59,7 +66,7 @@ describe("ProfileForm — contact details", () => {
 
     expect(await screen.findByText("Link cannot be empty.")).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
-    // Still on Connect, where the offending field is.
+    // Still on Reach, where the offending field is.
     expect(screen.getByRole("button", { name: "Link" })).toBeTruthy();
   });
 
@@ -111,5 +118,83 @@ describe("ProfileForm — contact details", () => {
     await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
     const submitted = onSubmit.mock.calls[0]![0] as ProfileInput;
     expect(submitted.contact_items[0]!.is_public).toBe(true);
+  });
+});
+
+describe("ProfileForm — username", () => {
+  it("suggests a username from the name until the person edits it", async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm submitLabel="Create my Sia" onSubmit={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Your name"), "Zoë Park");
+    expect(screen.getByLabelText("Username")).toHaveProperty("value", "zoepark");
+
+    await user.clear(screen.getByLabelText("Username"));
+    await user.type(screen.getByLabelText("Username"), "zoe");
+    await user.type(screen.getByLabelText("Your name"), "r");
+    expect(screen.getByLabelText("Username")).toHaveProperty("value", "zoe");
+  });
+
+  it("drops characters a username cannot hold as they are typed", async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm submitLabel="Create my Sia" onSubmit={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Username"), "Smoke Test!");
+    expect(screen.getByLabelText("Username")).toHaveProperty("value", "smoketest");
+  });
+
+  it("clears an error as soon as the value it described changes", async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm submitLabel="Create my Sia" onSubmit={vi.fn()} />);
+
+    await user.type(screen.getByLabelText("Your name"), "Al");
+    await user.clear(screen.getByLabelText("Username"));
+    await user.type(screen.getByLabelText("Username"), "al");
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    expect(await screen.findByText(/at least 3 characters/)).toBeTruthy();
+
+    await user.type(screen.getByLabelText("Username"), "ex");
+    expect(screen.queryByText(/at least 3 characters/)).toBeNull();
+  });
+
+  it("opens a resumed draft on the username, with the reason showing", () => {
+    render(
+      <ProfileForm
+        initialValue={{ ...emptyProfile, username: "taken", display_name: "Taken Name", is_public: true }}
+        resume={{ errors: { username: "That username is taken. Try another one." } }}
+        submitLabel="Create my Sia"
+        onSubmit={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByLabelText("Username")).toHaveProperty("value", "taken");
+    expect(screen.getByText("That username is taken. Try another one.")).toBeTruthy();
+  });
+});
+
+describe("ProfileForm — right now", () => {
+  it("fills the line from an idea, and clears it when the same idea is tapped again", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<ProfileForm submitLabel="Create my Sia" onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText("Your name"), "New User");
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    const line = (await screen.findByLabelText(/What.s happening/)) as HTMLInputElement;
+
+    const idea = screen.getByRole("button", { name: "New in town" });
+    await user.click(idea);
+    expect(line.value).toBe("New in town");
+    expect(idea.getAttribute("aria-pressed")).toBe("true");
+
+    // Still an ordinary field: the idea is a starting point, not a fixed choice.
+    await user.type(line, ", here till Friday");
+    expect(line.value).toBe("New in town, here till Friday");
+    expect(idea.getAttribute("aria-pressed")).toBe("false");
+
+    await user.clear(line);
+    await user.click(idea);
+    await user.click(idea);
+    expect(line.value).toBe("");
   });
 });

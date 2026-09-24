@@ -1,13 +1,14 @@
 "use client";
 
 import type { Profile } from "@sia/validation";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { api, ApiRequestError } from "@/lib/api";
 
 export function useOwnedProfile() {
   const router = useRouter();
+  const pathname = usePathname();
   const { session, loading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,8 @@ export function useOwnedProfile() {
   useEffect(() => {
     if (authLoading) return;
     if (!session) {
-      router.replace("/login");
+      // Come back here afterwards — someone who tapped Nearby wants Nearby, not their profile.
+      router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       return;
     }
     let active = true;
@@ -36,7 +38,7 @@ export function useOwnedProfile() {
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [authLoading, router, session]);
+  }, [authLoading, pathname, router, session]);
 
   return { profile, setProfile, loading: authLoading || loading, error, session };
 }

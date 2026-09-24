@@ -1,7 +1,26 @@
-import { ArrowDown, ArrowRight, EyeOff, MapPin, MessageCircleHeart, QrCode, Radar, UserRound } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowRight,
+  ChevronDown,
+  EyeOff,
+  GraduationCap,
+  Laptop,
+  MapPin,
+  MessageCircleHeart,
+  PartyPopper,
+  Plane,
+  Presentation,
+  QrCode,
+  Radar,
+  UserRound,
+  UsersRound,
+} from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { ButtonLink } from "@/components/button";
 import { Footer } from "@/components/footer";
+import { HeroQr } from "@/components/hero-qr";
+import { HomeCta } from "@/components/home-cta";
 import { absoluteUrl, siteConfig } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -42,6 +61,16 @@ const faqItems = [
     question: "Does Nearby show my exact location?",
     answer: "No. Nearby is opt-in and shares only an approximate distance band and general direction while you choose to be visible.",
   },
+] as const;
+
+// Where a code actually changes hands, so a visitor can picture their own version of it.
+const moments = [
+  { label: "Meetups", icon: UsersRound },
+  { label: "Conferences", icon: Presentation },
+  { label: "Campus", icon: GraduationCap },
+  { label: "Coworking", icon: Laptop },
+  { label: "Travel", icon: Plane },
+  { label: "Parties", icon: PartyPopper },
 ] as const;
 
 const structuredData = {
@@ -90,17 +119,21 @@ export default function HomePage() {
       <main>
         <section className="hero">
           <div className="hero-copy">
-            <span className="eyebrow">Personal profiles for real-life connections</span>
+            <span className="eyebrow">Your profile, one scan away</span>
             <h1>Make <em>hello</em> easier.</h1>
-            <p className="hero-lede">Meet people more naturally with Sia. Connect nearby, introduce yourself your way and make conversations easier.</p>
+            {/* The headline and this line are the pitch Sia is introduced with at meetups — keep
+                the site saying what people have already heard out loud. */}
+            <p className="hero-lede">Sia makes the first conversation more meaningful. One scan shows who you are and what you’re open to right now.</p>
             <div className="hero-actions" data-nosnippet="">
-              <ButtonLink href="/create">Create mine <ArrowRight size={18} /></ButtonLink>
+              <HomeCta />
               <ButtonLink href="#how-it-works" variant="secondary">See how <ArrowDown size={17} /></ButtonLink>
             </div>
             <div className="trust-line" aria-label="Sia benefits" data-nosnippet="">
-              <span>2 min</span>
+              <span>Free</span>
               <span aria-hidden="true">·</span>
-              <span>No app to scan</span>
+              <span>2 minutes</span>
+              <span aria-hidden="true">·</span>
+              <span>Private until you choose</span>
             </div>
           </div>
           <div className="hero-visual" aria-label="Example of a Sia profile" data-nosnippet="">
@@ -111,8 +144,24 @@ export default function HomePage() {
               <p className="mini-open">Open to</p>
               <div className="mini-chips"><span>Creative ideas</span><span>Coffee</span><span>A quick chat</span></div>
             </article>
-            <div className="scan-note">Say hello 👋</div>
+            {/* The card on its own reads as "a profile"; the code beside it is the part that says
+                how it reaches someone. The caption changes on a phone, where scanning your own
+                screen is not an option. */}
+            <Link className="hero-qr" href="/create">
+              <HeroQr value={absoluteUrl("/create")} />
+              <span className="hero-qr-point">Scan to make yours</span>
+              <span className="hero-qr-touch">Yours in 2 min</span>
+            </Link>
           </div>
+        </section>
+
+        <section className="moments" aria-labelledby="moments-heading" data-nosnippet="">
+          <h2 id="moments-heading">Made for the places you meet people</h2>
+          <ul className="moments-list">
+            {moments.map(({ label, icon: Icon }) => (
+              <li key={label}><Icon size={16} aria-hidden="true" /> {label}</li>
+            ))}
+          </ul>
         </section>
 
         <section className="nearby-teaser-section" aria-labelledby="nearby-teaser-heading">
@@ -131,7 +180,8 @@ export default function HomePage() {
               <span className="teaser-person teaser-person-two">L</span>
               <span className="teaser-person teaser-person-three">N</span>
               <span className="teaser-you"><MapPin size={19} /><small>You</small></span>
-              <span className="teaser-count"><Radar size={16} /> 3 here now</span>
+              {/* Sample people, labelled as such so the teaser never reads as a live count. */}
+              <span className="teaser-count"><Radar size={16} /> Example</span>
             </div>
           </div>
         </section>
@@ -142,23 +192,27 @@ export default function HomePage() {
             <div className="steps">
               <article className="step"><span className="step-icon"><UserRound /></span><span className="step-number">01</span><h3>You</h3><p>Build a lightweight profile with your interests and what you’re open to.</p></article>
               <article className="step"><span className="step-icon"><QrCode /></span><span className="step-number">02</span><h3>Share</h3><p>Share your link or let someone scan your personal QR code—no app needed.</p></article>
-              <article className="step"><span className="step-icon"><MessageCircleHeart /></span><span className="step-number">03</span><h3>Hello</h3><p>Give new people an easy, natural way to start a conversation.</p></article>
+              <article className="step"><span className="step-icon"><MessageCircleHeart /></span><span className="step-number">03</span><h3>Hello</h3><p>They see what you’re open to, so they know how to start the conversation.</p></article>
             </div>
-            <div className="home-inline-cta"><span>Ready?</span><ButtonLink href="/create" variant="quiet">Create mine <ArrowRight size={17} /></ButtonLink></div>
+            <div className="home-inline-cta"><span>Ready?</span><HomeCta variant="quiet" iconSize={17} /></div>
           </div>
         </section>
 
         <section className="faq-section" aria-labelledby="faq-heading">
           <div className="section-inner">
             <div className="section-heading"><span className="eyebrow">Good to know</span><h2 id="faq-heading">Your questions, answered.</h2></div>
-            <div className="faq-grid">
+            <div className="faq-list">
               {faqItems.map((item) => (
-                <article className="faq-item" key={item.question}>
-                  <h3>{item.question}</h3>
+                <details className="faq-item" name="faq" key={item.question}>
+                  <summary>
+                    <h3>{item.question}</h3>
+                    <span className="faq-icon" aria-hidden="true"><ChevronDown size={18} /></span>
+                  </summary>
                   <p>{item.answer}</p>
-                </article>
+                </details>
               ))}
             </div>
+            <div className="home-closing-cta" data-nosnippet=""><HomeCta /></div>
           </div>
         </section>
       </main>

@@ -11,7 +11,7 @@ export default function OpenGraphImage() {
         <div style={{ display: "flex", flexDirection: "column" }}>
           <span style={{ color: "#526fae", fontSize: 30, fontWeight: 700, letterSpacing: 3 }}>SIA</span>
           <strong style={{ width: 650, marginTop: 22, fontSize: 82, lineHeight: 1.02, letterSpacing: -4 }}>Make hello easier.</strong>
-          <span style={{ marginTop: 28, color: "#686663", fontSize: 30 }}>A small profile for real-life moments.</span>
+          <span style={{ width: 620, marginTop: 28, color: "#686663", fontSize: 30, lineHeight: 1.35 }}>Sia makes the first conversation more meaningful.</span>
         </div>
         <div style={{ width: 220, height: 300, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #ddd6cc", borderRadius: 48, background: "#fffdfc", boxShadow: "0 24px 55px rgba(48,43,38,.12)" }}>
           <span style={{ width: 112, height: 112, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, background: "#e8edf8", color: "#526fae", fontSize: 58, fontWeight: 700 }}>S</span>

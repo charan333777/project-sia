@@ -2,7 +2,7 @@
 
 import { PROFILE_DRAFT_KEY } from "@sia/shared";
 import { profileInputSchema } from "@sia/validation";
-import { ArrowLeft, ArrowRight, Eye, EyeOff, MailCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, MailCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { useAuth } from "@/components/auth-provider";
 import { Button } from "@/components/button";
 import { TextField } from "@/components/field";
 import { api, ApiRequestError } from "@/lib/api";
+import { LOGIN_NEXT_KEY, safeNextPath } from "@/lib/next-path";
 import { classifyHandoffError, handoffErrorMessage, type HandoffOutcome } from "@/lib/profile-handoff";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import { clearProfilePhotoDraft, loadProfilePhotoDraft } from "@/lib/profile-photo-draft";
@@ -57,10 +58,26 @@ function LoginForm() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [hasDraft, setHasDraft] = useState(false);
+  const [draftUsername, setDraftUsername] = useState("");
+  const nextParam = safeNextPath(searchParams.get("next"));
   const supabase = getSupabaseBrowserClient();
   const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/$/, "");
 
   /** Lets the draft go for good — once it has been saved, or once it never can be. */
+  /**
+   * Where to go once signed in. Google returns to a bare `/login`, so the destination is also
+   * kept in sessionStorage for the length of that round trip.
+   */
+  const takeNext = useCallback(() => {
+    const stored = safeNextPath(sessionStorage.getItem(LOGIN_NEXT_KEY));
+    sessionStorage.removeItem(LOGIN_NEXT_KEY);
+    return nextParam ?? stored;
+  }, [nextParam]);
+
+  useEffect(() => {
+    if (nextParam) sessionStorage.setItem(LOGIN_NEXT_KEY, nextParam);
+  }, [nextParam]);
+
   const discardDraft = useCallback(async () => {
     sessionStorage.removeItem(PROFILE_DRAFT_KEY);
     setHasDraft(false);
@@ -93,12 +110,17 @@ function LoginForm() {
     finishingRef.current = true;
     try {
       const rawDraft = sessionStorage.getItem(PROFILE_DRAFT_KEY);
-      if (!rawDraft) { router.replace("/profile"); return null; }
+      if (!rawDraft) { router.replace(takeNext() ?? "/profile"); return null; }
       const draft = profileInputSchema.parse(JSON.parse(rawDraft));
       try {
         await api.createProfile(draft, accessToken);
       } catch (caught) {
         if (!(caught instanceof ApiRequestError && caught.code === "PROFILE_EXISTS")) throw caught;
+        // They already had a Sia. It stays exactly as it was — including its photo — and
+        // the profile page says so instead of announcing a new one.
+        await discardDraft();
+        router.replace("/profile?existing=1");
+        return null;
       }
       const photoProblem = await attachDraftPhoto(accessToken);
       await discardDraft();
@@ -108,10 +130,17 @@ function LoginForm() {
       finishingRef.current = false;
       throw caught;
     }
-  }, [attachDraftPhoto, discardDraft, router]);
+  }, [attachDraftPhoto, discardDraft, router, takeNext]);
 
   useEffect(() => {
-    setHasDraft(Boolean(sessionStorage.getItem(PROFILE_DRAFT_KEY)));
+    const raw = sessionStorage.getItem(PROFILE_DRAFT_KEY);
+    setHasDraft(Boolean(raw));
+    try {
+      const parsed = raw ? (JSON.parse(raw) as { username?: unknown }) : null;
+      setDraftUsername(typeof parsed?.username === "string" ? parsed.username : "");
+    } catch {
+      setDraftUsername("");
+    }
   }, []);
 
   // `partial` is a success with a caveat: the profile is saved, the photo is not.
@@ -134,15 +163,21 @@ function LoginForm() {
           const nextToken = refreshed?.data.session?.access_token;
           if (nextToken) { token = nextToken; continue; }
         }
-        // Nothing about this draft can succeed on a retry, so let it go rather than
-        // leave someone to meet the same error on every visit to this page.
+        // Nothing about this draft can succeed on a retry. Rather than throw away everything
+        // someone just built, take it back to the wizard to fix — `/create` lifts it out of
+        // storage, so it cannot be replayed here on a later visit either.
+        if (outcome === "terminal" && sessionStorage.getItem(PROFILE_DRAFT_KEY)) {
+          const reason = caught instanceof ApiRequestError && caught.code === "USERNAME_TAKEN" ? "username" : "details";
+          router.replace(`/create?resume=${reason}`);
+          break;
+        }
         if (outcome === "terminal") await discardDraft();
         setHandoff({ kind: outcome, message: handoffErrorMessage(caught) });
         break;
       }
     }
     setLoading(false);
-  }, [discardDraft, finish, supabase]);
+  }, [discardDraft, finish, router, supabase]);
 
   useEffect(() => {
     if (authLoading || !session || finishingRef.current || handoff) return;
@@ -198,6 +233,8 @@ function LoginForm() {
     } finally { setLoading(false); }
   };
 
+  const forNearby = nextParam === "/nearby";
+
   const switchMode = (nextMode: "signup" | "login") => {
     setMode(nextMode); setForgot(false); setError(""); setMessage("");
   };
@@ -213,9 +250,15 @@ function LoginForm() {
         </>
       ) : (
         <>
-          <span className="eyebrow">{hasDraft ? "One last step" : mode === "signup" ? "Join Sia" : "Welcome back"}</span>
-          <h1>{hasDraft ? "Save your Sia." : mode === "signup" ? "Create your space." : "Good to see you."}</h1>
-          <p>{hasDraft ? "So it always belongs to you." : mode === "signup" ? "A small place that feels like you." : "Your Sia is waiting."}</p>
+          <span className="eyebrow">{hasDraft ? "One last step" : forNearby ? "Nearby" : mode === "signup" ? "Join Sia" : "Welcome back"}</span>
+          <h1>{hasDraft ? "Save your Sia." : forNearby ? "See who’s around." : mode === "signup" ? "Create your space." : "Good to see you."}</h1>
+          <p>{hasDraft ? "So it always belongs to you." : forNearby ? "Sign in first, so people nearby know who’s saying hello." : mode === "signup" ? "A small place that feels like you." : "Your Sia is waiting."}</p>
+          {hasDraft && (
+            <div className="auth-draft">
+              <span><Check size={15} aria-hidden="true" /> {draftUsername ? <>@{draftUsername} is ready to save</> : "Your Sia is ready to save"}</span>
+              <Link href="/create?resume=edit">Back to edit</Link>
+            </div>
+          )}
           <div className="auth-tabs" role="group" aria-label="Account action">
             <button type="button" aria-pressed={mode === "signup"} onClick={() => switchMode("signup")}>Sign up</button>
             <button type="button" aria-pressed={mode === "login"} onClick={() => switchMode("login")}>Log in</button>

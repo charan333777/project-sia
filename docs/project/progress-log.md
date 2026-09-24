@@ -3,6 +3,180 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-24 — One tap to the code, and a status that asks to be switched on
+
+Five follow-ups from the same review. Web-only; the API and schema are unchanged. Not yet
+deployed.
+
+**Link previews say the pitch.** `siteConfig.description` — the meta and Open Graph description, the
+JSON-LD and now the manifest — was still "Meet people more naturally…". It now opens with "Sia makes
+the first conversation more meaningful", so a link dropped into a group chat repeats what people
+heard at the meetup. The home share image pairs the same line with "Make hello easier."
+
+**One tap to the code.** Someone opens Sia to show their QR to the person in front of them, so:
+- The manifest's `start_url` is `/profile/qr` (signed out, that page sends you to log in). `scope`
+  is set to `/` explicitly — left out, it would default to `/profile/` and the rest of Sia would
+  open outside the app — and `id: "/"` keeps an existing install the same app. Long-pressing the
+  Android icon offers Show my QR, My Sia and Nearby.
+- An iPhone ignores `start_url` and adds whatever page is open, which is why the offer lives on the
+  QR page: `components/home-screen-tip.tsx` explains Share → Add to Home Screen on iOS, uses
+  Chrome's install prompt on Android when there is one (caught app-wide by
+  `components/install-prompt-listener.tsx`, since it fires only once and usually before the QR page
+  mounts), and falls back to the browser-menu instructions otherwise. Phones only, never inside the
+  installed app, gone for good once dismissed.
+- Home-screen icons were missing: an iPhone used a screenshot of the page. `app/apple-icon.tsx` and
+  `app/app-icon/[name]/route.tsx` draw the mark as PNGs (192, 512 and a maskable 512) from
+  `lib/app-icon.tsx`, with room around the loops so the bitmap does not clip them.
+
+**The QR shows why to scan.** Under the name, the on-screen card shows the live status ("Open · At
+the design meetup") or else the "right now" line (`components/qr-viewer.tsx`). The printable poster
+shows **Open to** instead — paper cannot expire, and a printed status would go on saying "at the
+meetup" after it ended. The poster builder moved to `lib/qr-poster.ts` so it could be tested; the
+line takes as many tags as fit (measured: about 16px a character at 34px Arial, capitals ~40% wider),
+and its room comes out of the code panel, which stays 660px of the 1080px width.
+
+**A nudge when the status is off.** A public Sia with nothing showing gets "Heading out? · Open for
+3h" above the card (`components/profile-status-nudge.tsx`). It sends the right-now line back as the
+status detail, because a status without one clears it. "Not now" quiets it for 12 hours on that
+device. The picker below now follows a duration set from the nudge.
+
+**Unknown profiles return 404.** `/u/<missing>` returned 200 with a `noindex` page: `app/loading.tsx`
+and `app/u/[username]/loading.tsx` wrapped the page in Suspense, so the 200 was sent before
+`notFound()` ran. Both are removed — `/u/[username]` is the only page that loads data on the server,
+every other page is static or client-rendered. The same change ends the "Opening this Sia…" flash
+on the most time-sensitive screen (roadmap). Measured locally against the live API: missing 404,
+real profile 200 at ~0.22s to first byte.
+
+Tests: `lib/qr-poster.test.ts` (line fitting, ordering and spacing with and without a photo, full-size
+code when there is no line) and `components/profile-status-nudge.test.tsx` (one tap keeps the
+right-now line, hidden when a status is live or the Sia is private, Not now sticks). Node 25's own
+`localStorage` global shadows jsdom's, so the nudge test installs an in-memory one.
+
+## 2026-09-24 — First impressions: the scanner's next step, and a hero that shows the code
+
+A review of siaqr.com against digital-card and meet-people apps (Blinq, Popl, HiHello, Linktree,
+NameDrop, happn, iicebrkr) found the two screens that decide whether Sia spreads — the home page
+and the public card — both underselling it. Web-only; the API and schema are unchanged. Not yet
+deployed.
+
+**Public card.**
+- The intro sits under the name and role instead of between the two tag lists, where it read as a
+  stray line (the roadmap's "Bio renders orphaned").
+- On a phone, **Save contact** floats at the bottom of the screen until the real button scrolls into
+  view, so the scanner's main action is always in reach. The floating copy is `aria-hidden`
+  and unfocusable, so assistive technology still meets one Save
+  (`components/profile-contact-panel.tsx`).
+- The invitation under the card was a thin "Make hello easier · Create mine" strip. It is now a card
+  that keeps the tagline and says what a Sia is before asking — "Made with Sia · Make hello easier",
+  a profile and QR code, yours in 2 minutes. A signed-in scanner already has one, so they get "Your
+  turn — show them yours", linking to their QR (`components/profile-viral-card.tsx`).
+
+**Home page.**
+- **"Make hello easier." stays the headline.** It is the line Sia is introduced with at meetups and in
+  groups, so the lede under it now says the same pitch out loud — "Sia makes the first conversation
+  more meaningful" — then what a scan shows, instead of "Meet people more naturally…". The eyebrow
+  ("Your profile, one scan away") fits one line on a phone, and the trust line leads with Free.
+- The hero's "Say hello 👋" sticker promised a button no real card has. It is now a real QR code that
+  opens `/create`: "Scan to make yours" on a laptop, "Yours in 2 min" on a phone
+  (`components/hero-qr.tsx`), under the same dark-on-white, quiet-zone rules as a Sia code.
+- A "Made for the places you meet people" row — meetups, conferences, campus, coworking, travel,
+  parties — sits under the hero, and step 3 says what the scan gives the other person.
+- The drifting hero orbit no longer widens the page by 3px at tablet widths.
+
+**Wizard.** The "Right now" step and the edit form offer six starting points ("At a meetup", "New in
+town", …). A tap fills the field, which stays editable; tapping the same one clears it. A render test
+in `components/profile-form.test.tsx` covers fill, edit and clear.
+
+`apps/web/app/page.tsx`, `apps/web/app/globals.css`, `apps/web/components/profile-card.tsx`,
+`apps/web/components/profile-form.tsx`.
+
+## 2026-09-22 — Smoke-test fixes: nothing someone builds gets thrown away
+
+A live smoke test of siaqr.com at 375×812 turned up flows that lost work or said the wrong thing.
+All of these are web-only; the API and schema are unchanged. Not yet deployed.
+
+**Lost work.**
+- A taken username after sign-up used to drop the whole draft (409 is terminal) and then say "open
+  your Sia" when none existed. `/login` now sends any terminal hand-off to
+  `/create?resume=username|details`. The create page lifts the draft and its photo into the wizard,
+  opening on the failing field. It removes the draft from storage only after the hand-over, so an
+  interrupted effect cannot eat it; a StrictMode test guards this.
+- A signed-in user with a Sia could run `/create` again. `PROFILE_EXISTS` was swallowed and a chosen
+  photo replaced their existing one. `/create` now redirects them to `/profile`. A draft that meets
+  `PROFILE_EXISTS` at `/login` leaves the existing photo alone and lands on `/profile?existing=1`,
+  which says the Sia was kept.
+
+**Going where you meant to go.** A signed-out tap on Nearby went to a bare `/login` ("Welcome back")
+and ended on `/profile`. `useOwnedProfile` now sends `/login?next=<path>`. `lib/next-path.ts` only
+accepts same-site paths, and the destination survives Google OAuth in sessionStorage. The Nearby
+arrival gets its own heading.
+
+**Wizard.**
+- The username follows the name until it is edited, drops characters it cannot hold as they are
+  typed, and has spellcheck off (`lib/username.ts`).
+- An error clears as soon as its field changes, in both the create and edit forms.
+- Private now says the QR won't open for anyone else.
+- The last step flags hidden contact details, with a Review link back to them.
+- Sign-up shows "@handle is ready to save" with Back to edit.
+
+**Smaller fixes.**
+- The profile status Off option reads "Just your 'right now' line" when that line exists, because it
+  still shows.
+- Nearby shows "Who's around?" instead of "0 nearby" while hidden.
+- The not-found page leads with "Make your own Sia".
+- The owner's Preview link carries `?preview=1`, which skips the view count and swaps "Create mine"
+  for a way back (`components/profile-viral-card.tsx`).
+- Home CTAs read "Open my Sia" when signed in (`components/home-cta.tsx`). The FAQ ends in a button,
+  and the radar teaser is labelled "Example".
+- The mobile hero gap is smaller, and "Say hello" no longer sits on the chips.
+- The header labels Create on phones and hides links to the current page.
+- The QR and Edit pages have their own titles.
+
+## 2026-09-22 — "Show my QR" moves to the top of the owner page
+
+A live smoke test at 375×812 found that on `/profile` every action (Share, Edit, QR, Copy) sat about
+two screens down, below the card, the scan count and the status picker. The moment someone opens
+this page is usually the moment they want to show their code to the person in front of them.
+
+The actions now sit directly under the "Your Sia" heading, above the card: a full-width **Show my
+QR** primary button, then Share · Copy link · Edit as one compact row. A private Sia gets **Choose
+visibility** as the primary instead, with Edit beside it. Copy confirms in its own label ("Copied")
+and through a visually hidden status line, so the old centred status paragraph no longer reserves
+blank space. `apps/web/app/profile/page.tsx`, owner action rules in `app/globals.css`. Not yet
+deployed.
+
+## 2026-09-18 — Create wizard fits one phone screen
+
+On a phone, `/create` scrolled on every step and the live preview sat below the form, so it was
+never in view while typing. Measured at 375×812, the Connect step needed 911px and Style up to 653px
+against roughly 370px of room.
+
+**One screen, preview on top.** Below 840px the page is exactly `100dvh` tall: a compact preview
+strip on top, the step card filling the rest, Back/Next always visible. The strip shows avatar, name,
+role, handle and the "right now" line in the chosen colour mood; tapping it opens the full card in a
+bottom sheet (`components/profile-preview-strip.tsx`). The step body is its own scroll area only as a
+fallback, so the page itself never scrolls. Desktop keeps the side-by-side full preview.
+
+**Eight short steps instead of five.** You · Now · Into · Open to · Reach · Look · Colour ·
+Visibility. Connect and Style were split, and the short intro moved from You to Now. `fieldStep` in
+`lib/contact-items.ts` follows the new order, so a late validation error still returns to the step
+that owns the field. The edit page is unchanged — it still shows the intro under About me.
+
+**What fits.** At 375×812 every step fits with three contact rows, three custom tags or a photo. At
+375×667 (an iPhone with Safari's toolbars showing) everything fits except three or more contact rows,
+which scroll inside the card. Not yet deployed.
+
+## 2026-09-18 — Home FAQ: questions first, answers drop down
+
+The "Good to know" section showed all four questions and answers at once, which made a long wall of
+text at the bottom of the home page on a phone. It now lists only the questions as dropdowns; tapping
+one opens its answer underneath, and opening another closes the first.
+
+They are native `<details name="faq">` elements in `apps/web/app/page.tsx`, so there is no client
+JavaScript, keyboard and screen-reader behaviour come from the browser, and the answers stay in the
+server HTML alongside the `FAQPage` JSON-LD. The list is a single centred column at every width, since
+a two-column grid leaves a tall empty card beside whichever answer is open. Not yet deployed.
+
 ## 2026-09-09 — The hand-off that could not be escaped
 
 Reported as "I am getting this error again": signing in showed **Almost there — you're signed in, but

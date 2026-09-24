@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { ArrowRight, Sparkles } from "lucide-react";
-import { ButtonLink } from "@/components/button";
 import { ProfileCard } from "@/components/profile-card";
 import { ProfileViewCounter } from "@/components/profile-view-counter";
+import { ProfileViralCard } from "@/components/profile-viral-card";
 import { api, ApiRequestError } from "@/lib/api";
 import { absoluteUrl, siteConfig } from "@/lib/site";
 
@@ -85,10 +84,7 @@ export default async function PublicProfilePage({ params }: PageProps) {
       <main className="public-shell">
         <p className="public-top-note">Meet {profile.display_name} <span aria-hidden="true">👋</span></p>
         <ProfileCard profile={profile} />
-        <section className="viral-card">
-          <span><Sparkles size={17} /> Make hello easier</span>
-          <ButtonLink href="/create" variant="quiet">Create mine <ArrowRight size={17} /></ButtonLink>
-        </section>
+        <ProfileViralCard />
       </main>
     </>
   );

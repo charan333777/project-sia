@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import type { Profile, ProfileStatusDuration, ProfileStatusState } from "@sia/validation";
 import { api, ApiRequestError } from "../lib/api";
@@ -28,6 +28,11 @@ export function ProfileStatusPicker({
   const [error, setError] = useState("");
 
   const activeState = profile.status?.state ?? "off";
+
+  // A status can also be set from the nudge at the top of the page; follow its duration.
+  useEffect(() => {
+    if (profile.status_duration) setDuration(profile.status_duration);
+  }, [profile.status_duration]);
 
   async function apply(state: ProfileStatusState, nextDuration: ProfileStatusDuration) {
     setPending(state);
@@ -70,7 +75,7 @@ export function ProfileStatusPicker({
             >
               <span className="status-choice-icon"><Icon size={20} /></span>
               <strong>{option.label}</strong>
-              <small>{option.hint}</small>
+              <small>{option.id === "off" && profile.current_context ? "Just your ‘right now’ line" : option.hint}</small>
             </button>
           );
         })}

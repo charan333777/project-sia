@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Fraunces } from "next/font/google";
 import { AuthProvider } from "@/components/auth-provider";
 import { Header } from "@/components/header";
+import { InstallPromptListener } from "@/components/install-prompt-listener";
 import { siteConfig } from "@/lib/site";
 import "./globals.css";
 
@@ -69,6 +70,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en" className={`${sans.variable} ${serif.variable}`} data-scroll-behavior="smooth">
       <body>
+        <InstallPromptListener />
         <AuthProvider>
           <Header />
           {children}

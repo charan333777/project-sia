@@ -8,9 +8,21 @@ import { ProfileStatusPanel } from "./profile-status-panel";
 
 type DisplayProfile = Profile | ProfileInput;
 
+export function ProfileAvatar({ profile, photoUrl }: { profile: DisplayProfile; photoUrl?: string | null }) {
+  const character = getProfileCharacterOption(profile.profile_character);
+  return (
+    <div className={`profile-avatar ${photoUrl ? "profile-photo-avatar" : character.imageSrc ? "profile-character-avatar" : ""}`} aria-hidden="true">
+      <span>{photoUrl
+        ? <img src={photoUrl} alt="" width="72" height="72" draggable={false} />
+        : character.imageSrc
+        ? <img src={character.imageSrc} alt="" width="72" height="72" draggable={false} />
+        : profile.display_name.slice(0, 1).toUpperCase()}</span>
+    </div>
+  );
+}
+
 export function ProfileCard({ profile, compact = false, owner = false, photoPreviewUrl }: { profile: DisplayProfile; compact?: boolean; owner?: boolean; photoPreviewUrl?: string | null }) {
   const theme = getProfileTheme(profile.profile_theme);
-  const character = getProfileCharacterOption(profile.profile_character);
   const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
   const status = "status" in profile ? profile.status : null;
   // A public profile arrives already filtered by the API. Filtering again here means the
@@ -20,19 +32,16 @@ export function ProfileCard({ profile, compact = false, owner = false, photoPrev
   return (
     <article className={`profile-card profile-theme-${theme} ${compact ? "profile-card-compact" : ""}`}>
       <div className="profile-identity">
-        <div className={`profile-avatar ${photoUrl ? "profile-photo-avatar" : character.imageSrc ? "profile-character-avatar" : ""}`} aria-hidden="true">
-          <span>{photoUrl
-            ? <img src={photoUrl} alt="" width="72" height="72" draggable={false} />
-            : character.imageSrc
-            ? <img src={character.imageSrc} alt="" width="72" height="72" draggable={false} />
-            : profile.display_name.slice(0, 1).toUpperCase()}</span>
-        </div>
+        <ProfileAvatar profile={profile} photoUrl={photoUrl} />
         <div>
           <h1>{profile.display_name}</h1>
           {profile.role && <p className="profile-role">{profile.role}</p>}
           <span className="profile-handle">@{profile.username}</span>
         </div>
       </div>
+      {/* The intro belongs to the person, so it reads straight after their name rather than
+          between two tag lists where it looked like a stray line. */}
+      {profile.bio && <p className="profile-bio">{profile.bio}</p>}
       {status ? (
         <ProfileStatusPanel status={status} />
       ) : (
@@ -49,7 +58,6 @@ export function ProfileCard({ profile, compact = false, owner = false, photoPrev
           <div className="tag-list">{profile.open_to.map((item) => <span className="open-tag" key={item}>{item}</span>)}</div>
         </section>
       )}
-      {profile.bio && <p className="profile-bio">{profile.bio}</p>}
       {profile.interests.length > 0 && (
         <section className="profile-section" aria-labelledby="interests-heading">
           <div className="section-eyebrow"><Heart size={17} /><h2 id="interests-heading">I’m into</h2></div>
