@@ -3,6 +3,19 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-09-24 — Live check of the two batches, and two layout fixes
+
+Both batches below were checked on siaqr.com after deploy: copy, share text and image, manifest,
+icons, 404, the floating Save, the invite, the nudge, the QR line and the home-screen tip all as
+described. Two layout faults, fixed in `app/globals.css`, not yet deployed:
+
+- **At 380px and narrower** an older rule hid the words in the strip under a profile, leaving a bare
+  "My QR →" or "← Your Sia". The words now stack above the button instead. The same rule, via
+  `.viral-card > span`, also matched the invite's QR icon — hiding it on small phones and overriding
+  its centring elsewhere — so the invite is excluded and its icon rule is more specific.
+- **The nudge's Open for 3h button** sat off-centre on phones, because the card's right padding made
+  room for the ✕ across the whole card. Only the text now keeps clear of it.
+
 ## 2026-09-24 — One tap to the code, and a status that asks to be switched on
 
 Five follow-ups from the same review. Web-only; the API and schema are unchanged. Not yet

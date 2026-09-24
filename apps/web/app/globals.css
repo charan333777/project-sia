@@ -698,8 +698,10 @@ body {
   .profile-identity { gap: 12px; }
   .profile-avatar { width: 55px; height: 55px; }
   .profile-identity h1 { font-size: 32px; }
-  .viral-card > span { display: none; }
-  .viral-card { justify-content: center; }
+  /* Too narrow for the words and the button side by side: stack them rather than drop the words,
+     which are what explain the button ("Your turn — show them yours"). The invite has its own layout. */
+  .viral-card:not(.viral-invite) { flex-wrap: wrap; justify-content: center; gap: 4px; text-align: center; }
+  .viral-card:not(.viral-invite) > span { width: 100%; justify-content: center; }
 }
 
 /* Nearby visual prototype */
@@ -1228,7 +1230,7 @@ body {
 
 /* The scanner's invitation: what Sia is, then the button. */
 .viral-invite { margin-top: 22px; padding: 24px 26px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 18px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); box-shadow: var(--shadow-soft); text-align: left; }
-.viral-invite-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; color: var(--brand-dark); background: var(--brand-soft); }
+.viral-invite > .viral-invite-icon { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 16px; color: var(--brand-dark); background: var(--brand-soft); }
 .viral-invite-copy .eyebrow { font-size: 11px; }
 .viral-invite-copy h2 { margin: 3px 0 5px; font-family: var(--font-serif); font-size: 25px; font-weight: 560; letter-spacing: -.02em; line-height: 1.15; }
 .viral-invite-copy p { max-width: none; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
@@ -1307,6 +1309,7 @@ body {
 .status-nudge-close:hover { background: rgba(255,255,255,.6); }
 
 @media (max-width: 600px) {
-  .status-nudge { grid-template-columns: auto minmax(0, 1fr); }
+  .status-nudge { padding-right: 14px; grid-template-columns: auto minmax(0, 1fr); }
+  .status-nudge-copy { padding-right: 26px; }
   .status-nudge-action { grid-column: 1 / -1; width: 100%; }
 }
