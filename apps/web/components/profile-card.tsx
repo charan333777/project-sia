@@ -1,4 +1,4 @@
-import { Heart, MessageCircleMore, Sparkles } from "lucide-react";
+import { Heart, MessageCircleMore, Sparkles, UserRound } from "lucide-react";
 import { publicContactItems, type Profile, type ProfileInput } from "@sia/validation";
 import { absoluteUrl } from "@/lib/site";
 import { getProfileCharacterOption } from "./profile-characters";
@@ -41,8 +41,14 @@ export function ProfileCard({ profile, compact = false, owner = false, photoPrev
         </div>
       </div>
       {/* The intro belongs to the person, so it reads straight after their name rather than
-          between two tag lists where it looked like a stray line. */}
-      {profile.bio && <p className="profile-bio">{profile.bio}</p>}
+          between two tag lists where it looked like a stray line. A short "About" label keeps a
+          one-line bio from reading as a stray fragment. */}
+      {profile.bio && (
+        <section className="profile-section profile-about" aria-label="About">
+          <div className="section-eyebrow"><UserRound size={17} /><h2>About</h2></div>
+          <p className="profile-bio">{profile.bio}</p>
+        </section>
+      )}
       {status ? (
         <ProfileStatusPanel status={status} />
       ) : (

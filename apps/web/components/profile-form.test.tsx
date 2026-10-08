@@ -202,4 +202,13 @@ describe("three-stage creation", () => {
     expect(onSubmit.mock.calls[0]?.[0].is_public).toBe(false);
     expect(onSubmit.mock.calls[0]?.[0].list_in_search).toBe(false);
   });
+
+  it("moves focus to the first invalid field when a step fails validation", async () => {
+    const user = userEvent.setup();
+    render(<ProfileForm submitLabel="Save" onSubmit={vi.fn()} />);
+    // Next with an empty name: the error belongs to the name field, so focus should land there
+    // rather than staying on the button a keyboard user just pressed.
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByLabelText("Your name")));
+  });
 });

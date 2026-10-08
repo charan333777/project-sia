@@ -8,11 +8,26 @@ import { useAuth } from "@/components/auth-provider";
 import { LoadingState } from "@/components/loading-state";
 import { emptyProfile, ProfileForm, type ProfileFormResume, type ProfilePhotoChange } from "@/components/profile-form";
 import { api, ApiRequestError } from "@/lib/api";
+import { safeNextPath } from "@/lib/next-path";
 import { clearProfilePhotoDraft, loadProfilePhotoDraft, saveProfilePhotoDraft, clearWizardPhotoDraft, loadWizardPhotoDraft, saveWizardPhotoDraft } from "@/lib/profile-photo-draft";
 
 import { clearWizardDraft, readWizardDraft, saveWizardDraft } from "@/lib/profile-wizard-draft";
 
 const USERNAME_TAKEN = { username: "That username is taken. Try another one." };
+
+// Why someone was sent here with a Sia still to make, so the wizard explains itself instead of
+// appearing out of nowhere. Keyed off the `from` the owned-profile redirect sets.
+const CREATE_CONTEXT: Record<string, string> = {
+  nearby: "Create your Sia first, so people nearby know who they’re meeting.",
+  qr: "Create your Sia to get the QR code you can share.",
+};
+
+// After saving, return to the tool they were headed for. The path arrives in a query string, so
+// it is validated as a same-site path and must not loop straight back into the wizard.
+function returnPathFromParams(raw: string | null): string {
+  const next = safeNextPath(raw);
+  return next && !next.startsWith("/create") ? next : "/profile?created=1";
+}
 
 type Start = { value: ProfileInput; resume?: ProfileFormResume };
 
@@ -140,7 +155,7 @@ function CreateContent() {
       const wizardId = clearWizardDraft();
       if (wizardId) await clearWizardPhotoDraft(wizardId).catch(() => undefined);
       await clearProfilePhotoDraft().catch(() => undefined);
-      router.push(created ? "/profile?created=1" : "/profile?existing=1");
+      router.push(created ? returnPathFromParams(params.get("next")) : "/profile?existing=1");
     } catch (caught) {
       if (caught instanceof ApiRequestError && caught.code === "USERNAME_TAKEN") {
         // Back to the username with everything else kept, rather than a message at the
@@ -155,10 +170,12 @@ function CreateContent() {
   };
 
   if (!start) return <LoadingState label="Getting things ready…" />;
+  const contextNote = CREATE_CONTEXT[params.get("from") ?? ""];
   return (
     <main className="page-shell create-shell">
       <div className="builder-shell">
         <div className="page-intro"><span className="eyebrow">Your Sia</span><h1>Let’s make it yours.</h1><p>Three small steps. Create a free account to save it.</p></div>
+        {contextNote && <p className="create-context-note">{contextNote}</p>}
         {storageNotice && <p className="form-error" role="status">{storageNotice}</p>}
         <ProfileForm key={formKey} initialValue={start.value} resume={start.resume} submitLabel="Save my Sia" checkUsername rememberProgress onProgress={progress} onDiscard={() => void discard()} submitting={submitting} serverError={error} onSubmit={submit} />
       </div>

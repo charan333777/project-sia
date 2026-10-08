@@ -59,6 +59,17 @@ const steps = [
   { label: "Review", title: "Ready to share?", icon: Globe2 },
 ];
 
+// A failed Next/Save should land focus on the first problem rather than leaving it on the
+// button, so keyboard and screen-reader users reach the error immediately. Fields without a
+// single input (photo, tags, contacts) fall back to the step heading.
+const fieldFocusId: Record<string, string> = {
+  display_name: "display-name",
+  username: "username",
+  role: "role",
+  current_context: "current-context",
+  bio: "bio",
+};
+
 type AvatarMode = "photo" | "character" | "initial";
 export type ProfilePhotoChange = { action: "keep" } | { action: "upload"; photo: Blob } | { action: "remove" };
 
@@ -394,6 +405,8 @@ export function ProfileForm({
   const usernameTouched = useRef(resume?.usernameTouched ?? Boolean(initialValue.username));
   const wizardHeadingRef = useRef<HTMLDivElement>(null);
   const wizardBodyRef = useRef<HTMLDivElement>(null);
+  // The field to focus once errors render and any step switch has committed.
+  const pendingFocus = useRef<string | null>(null);
   const avatar = useAvatarEditor(initialValue, resume?.photo);
   const historyDepth = useRef(0);
   const draftId = useRef(resume?.draftId ?? crypto.randomUUID());
@@ -464,10 +477,23 @@ export function ProfileForm({
     wizardHeadingRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [step]);
 
+  // Runs after validation sets errors (and after any step switch commits), so focus lands on
+  // the first invalid field even when it lives on an earlier step.
+  useEffect(() => {
+    const field = pendingFocus.current;
+    if (!field) return;
+    pendingFocus.current = null;
+    const id = fieldFocusId[field];
+    const target = id ? document.getElementById(id) : null;
+    if (target) target.focus();
+    else wizardHeadingRef.current?.focus({ preventScroll: true });
+  }, [errors, step]);
+
   const next = () => {
     if (step === 0) {
       const result = validationErrors(value);
       if (result.errors.display_name || result.errors.username || result.errors.role) {
+        pendingFocus.current = result.errors.display_name ? "display_name" : result.errors.username ? "username" : "role";
         setErrors(result.errors);
         return;
       }
@@ -475,11 +501,13 @@ export function ProfileForm({
     if (step === 1) {
       const result = validationErrors(value);
       if (result.errors.current_context || result.errors.bio) {
+        pendingFocus.current = result.errors.current_context ? "current_context" : "bio";
         setErrors(result.errors);
         return;
       }
     }
     if (step === 0 && avatar.avatarMode === "photo" && !avatar.previewUrl) {
+      pendingFocus.current = "photo";
       setErrors({ photo: "Take or choose a photo, or select another option." });
       return;
     }
@@ -498,11 +526,13 @@ export function ProfileForm({
       // The failing field may belong to an earlier step, where its message is rendered.
       // Without this the submit button appears to do nothing at all.
       const firstField = Object.keys(result.errors)[0];
+      pendingFocus.current = firstField ?? null;
       const target = firstField === undefined ? undefined : fieldStep[firstField];
       if (target !== undefined && target !== step) changeStep(target);
       return;
     }
     if (avatar.avatarMode === "photo" && !avatar.previewUrl) {
+      pendingFocus.current = "photo";
       setErrors({ photo: "Take or choose a photo, or select another option." });
       changeStep(0);
       return;

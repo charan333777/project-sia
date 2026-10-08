@@ -38,8 +38,8 @@ secrets are recorded here or anywhere in the repo.
 
 | Area | State | Primary source |
 | --- | --- | --- |
-| Profile create / edit / public view | Done — three stages (You, Your moment, Review), with optional appearance, interests, contacts and theme. Private is preselected; debounced username availability checks give early feedback. Public cards offer a conversation prompt and save-name/link contact even without published details. Pending deployment | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/components/profile-preview-strip.tsx`, `apps/web/app/profile/page.tsx`, `apps/web/app/u/[username]/page.tsx` |
-| Profile status | Done, live (seen on siaqr.com 2026-09-22) — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry. While nothing is showing, the owner page offers **Open for 3h** in one tap (not yet deployed) | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx`, `apps/web/components/profile-status-nudge.tsx` |
+| Profile create / edit / public view | Done — three stages (You, Your moment, Review), with optional appearance, interests, contacts and theme. Private is preselected; debounced username availability checks give early feedback. A signed-in account with no profile is routed to creation with its origin preserved (`next`/`from`) and returned to the tool it came from on save. A failed step moves focus to the first invalid field. Public cards offer a conversation prompt, an "About" label for the bio, and save-name/link contact even without published details. Pending deployment | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/components/profile-preview-strip.tsx`, `apps/web/app/profile/page.tsx`, `apps/web/app/u/[username]/page.tsx` |
+| Profile status | Done, live (seen on siaqr.com 2026-09-22) — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry. While nothing is showing, the owner page offers **Open for 3h** in one tap. A restrained state-colour pulse confirms only a successful server update. Pending deployment | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx`, `apps/web/components/profile-status-nudge.tsx` |
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
 | Pre-auth draft handoff | Done — separate unfinished progress and completed authentication handoff; refresh, step history, explicit discard and photo recovery. Signed-in drafts are never persisted for login replay. Pending deployment | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx`, `apps/web/app/create/page.tsx` |
 | QR code + poster export | Done — canonical black-on-white QR and SVG poster; status/context, home-screen tip and optional expiring event presets. A private profile offers one-tap "Make my QR scannable" instead of dead-ending at Edit. Custom presets are device-local and owner-scoped; applying one never enables Nearby. Pending deployment | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx`, `apps/web/lib/qr-poster.ts`, `apps/web/components/home-screen-tip.tsx`, `apps/web/app/manifest.ts` |
@@ -60,6 +60,10 @@ secrets are recorded here or anywhere in the repo.
 The signed-out Nearby preview makes no real location or interaction requests. Mobile homepage
 explanation cards now form a compact three-column row. See `apps/web/components/sample-experience.tsx` and
 `apps/web/components/nearby-introduction.tsx`.
+
+The sample profile now gives brief, reduced-motion-safe visual feedback when its meeting moment
+changes, and the owner status picker gives the same kind of restrained feedback only after the API
+confirms an update. Both are pending deployment.
 
 Before deployment, apply `supabase/migrations/202609300001_add_illustrated_profile_characters.sql`,
 deploy the compatible API, then the web app. Configure the four `LEGAL_*` values in the web

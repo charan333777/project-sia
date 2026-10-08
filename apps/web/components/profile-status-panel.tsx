@@ -47,7 +47,7 @@ export function ProfileStatusPanel({ status }: { status: ProfileStatus }) {
   const fraction = now === null ? 1 : statusRemainingFraction(status.duration, status.expires_at, now);
 
   return (
-    <section className={`status-panel status-panel-${status.state}`} aria-labelledby="status-heading">
+    <section key={`${status.state}-${status.expires_at}`} className={`status-panel status-panel-${status.state}`} aria-labelledby="status-heading">
       <span className="status-icon"><Icon size={19} /></span>
       <div className="status-body">
         <p id="status-heading">{option.label}</p>

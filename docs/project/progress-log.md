@@ -3,6 +3,41 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-10-08 — Purposeful profile microinteractions (implemented locally, pending deployment)
+
+A review of Recent Design's interface, motion and product references found two patterns worth
+adapting without changing Sia's calm visual language. The status picker now gives a brief,
+state-coloured confirmation only after the API accepts an update; the profile status panel softly
+reveals its confirmed state. The `/demo` moment controls now animate just the changed **Right now**
+and **Open to** content, with a clipped theme-colour bloom inside the profile card. The contact
+panel stays stable and no QR surface or quiet zone is touched.
+
+Both effects use CSS and small local React state, introduce no dependency, preserve the existing
+radio semantics and error handling, and collapse to an instant update when reduced motion is
+requested. Files: `apps/web/components/profile-status-picker.tsx`,
+`apps/web/components/profile-status-panel.tsx`, `apps/web/components/sample-experience.tsx`, and
+`apps/web/app/globals.css`.
+
+## 2026-10-08 — Intent-preserving creation + accessibility pass (implemented locally, pending deployment)
+
+From Orion's live-site audit (round 1), agreed with Charan. A signed-in account with no profile
+no longer dead-ends: `useOwnedProfile` now redirects to `/create?next=<validated path>&from=nearby|qr|profile`
+instead of a bare `/create`, `/create` shows a `from`-keyed line explaining why creation is needed
+and returns to the requested tool on save (validated through `safeNextPath`, which rejects
+off-site paths and refuses to loop back into the wizard). The homepage CTA for signed-in visitors
+is the neutral **My Sia** rather than "Open my Sia", since the component only knows a session
+exists, not whether a profile does. Files: `apps/web/hooks/use-owned-profile.ts`,
+`apps/web/app/create/page.tsx`, `apps/web/components/home-cta.tsx`.
+
+Accessibility: the compact mobile header now guarantees ≥44×44 tap targets (logo box and the
+icon-only Nearby link) without changing the visual size, and a failed wizard Next/Save moves focus
+to the first invalid field — including after switching back to the step that owns it — rather than
+leaving focus on the button (`apps/web/components/profile-form.tsx`, `apps/web/app/globals.css`).
+Public bios now sit under an **About** eyebrow so a short bio no longer reads as a stray fragment
+(`apps/web/components/profile-card.tsx`).
+
+Validation: typecheck and all tests pass (23 validation, 30 API, 81 web; +1 focus-on-error test).
+
 ## 2026-10-08 — First-run UX polish from the market review (implemented locally, pending deployment)
 
 The private QR state no longer dead-ends at Edit: it offers a one-tap **Make my QR scannable**

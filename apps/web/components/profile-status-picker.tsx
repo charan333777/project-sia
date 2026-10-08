@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Clock } from "lucide-react";
 import type { Profile, ProfileStatusDuration, ProfileStatusState } from "@sia/validation";
 import { moveRadioSelection } from "@/lib/radio-group";
@@ -26,7 +26,10 @@ export function ProfileStatusPicker({
   const [duration, setDuration] = useState<ProfileStatusDuration>(profile.status_duration ?? "1h");
   const [detail, setDetail] = useState(profile.status ? profile.status.detail : profile.current_context);
   const [pending, setPending] = useState<ProfileStatusState | null>(null);
+  const [confirmedState, setConfirmedState] = useState<ProfileStatusState | null>(null);
   const [error, setError] = useState("");
+  const confirmationFrame = useRef<number | null>(null);
+  const confirmationTimer = useRef<number | null>(null);
 
   const activeState = profile.status?.state ?? "off";
 
@@ -37,6 +40,23 @@ export function ProfileStatusPicker({
 
   useEffect(() => { setDetail(profile.status?.detail ?? profile.current_context); }, [profile.status?.detail, profile.current_context]);
 
+  useEffect(() => () => {
+    if (confirmationFrame.current !== null) window.cancelAnimationFrame(confirmationFrame.current);
+    if (confirmationTimer.current !== null) window.clearTimeout(confirmationTimer.current);
+  }, []);
+
+  function confirm(state: ProfileStatusState) {
+    if (confirmationFrame.current !== null) window.cancelAnimationFrame(confirmationFrame.current);
+    if (confirmationTimer.current !== null) window.clearTimeout(confirmationTimer.current);
+
+    // Drop the class for one frame so choosing the same state again can replay the confirmation.
+    setConfirmedState(null);
+    confirmationFrame.current = window.requestAnimationFrame(() => {
+      setConfirmedState(state);
+      confirmationTimer.current = window.setTimeout(() => setConfirmedState(null), 560);
+    });
+  }
+
   async function apply(state: ProfileStatusState, nextDuration: ProfileStatusDuration) {
     setPending(state);
     setError("");
@@ -46,6 +66,7 @@ export function ProfileStatusPicker({
           ? await api.setProfileStatus({ state: "off" }, token)
           : await api.setProfileStatus({ state, duration: nextDuration, detail }, token);
       onChange(updated);
+      confirm(state);
     } catch (cause) {
       setError(
         cause instanceof ApiRequestError
@@ -74,7 +95,7 @@ export function ProfileStatusPicker({
               aria-checked={selected}
               tabIndex={selected ? 0 : -1}
               disabled={pending !== null}
-              className={`status-choice status-choice-${option.id} ${selected ? "status-choice-selected" : ""}`}
+              className={`status-choice status-choice-${option.id} ${selected ? "status-choice-selected" : ""} ${confirmedState === option.id ? "status-choice-confirmed" : ""}`}
               onClick={() => apply(option.id, duration)}
             >
               <span className="status-choice-icon"><Icon size={20} /></span>

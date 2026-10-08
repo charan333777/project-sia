@@ -33,7 +33,9 @@ export function SampleExperience() {
         <ButtonLink href="/create">Make my own <ArrowRight size={16} /></ButtonLink>
       </section>
       <section aria-label="Fictional scanner experience">
-        <ProfileCard profile={profile} compact headingLevel={2} />
+        <div className="demo-profile-preview" key={moment}>
+          <ProfileCard profile={profile} compact headingLevel={2} />
+        </div>
         <ProfileContactPanel profile={{ ...profile, display_name: "Maya — Sia example" }} items={[]} profileUrl={absoluteUrl("/demo")} />
         <p className="demo-note">The sample contact saves this demo link. A real Sia saves that person’s profile link.</p>
       </section>

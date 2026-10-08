@@ -14,6 +14,15 @@ export function useOwnedProfile({ allowSignedOut = false }: { allowSignedOut?: b
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  // A signed-in person with no profile still wanted the tool they tapped, so creation keeps
+  // where they were headed and why. /profile uses its own welcome, so it needs no return path.
+  const createPath = () => {
+    const from = pathname === "/nearby" ? "nearby" : pathname.startsWith("/profile/qr") ? "qr" : "profile";
+    const query = new URLSearchParams({ from });
+    if (from !== "profile") query.set("next", pathname);
+    return `/create?${query.toString()}`;
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!session) {
@@ -31,8 +40,8 @@ export function useOwnedProfile({ allowSignedOut = false }: { allowSignedOut?: b
           // A profile awaiting purge also reads as missing. Sending someone to /create
           // would dead-end on PROFILE_EXISTS, so offer recovery instead.
           void api.getPendingDeletion(session.access_token)
-            .then((pending) => active && router.replace(pending ? "/profile/deleted" : "/create"))
-            .catch(() => active && router.replace("/create"));
+            .then((pending) => active && router.replace(pending ? "/profile/deleted" : createPath()))
+            .catch(() => active && router.replace(createPath()));
           return;
         }
         setError(caught instanceof Error ? caught.message : "We couldn’t load your profile.");
