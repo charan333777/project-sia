@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ProfileCharacter } from "./profile.js";
 
 export const nearbyDurationSchema = z.enum(["15m", "60m", "until_leave"]);
 export const nearbyIntentSchema = z.enum(["hello", "interested", "coffee", "chat", "network", "collaborate"]);
@@ -63,6 +64,7 @@ export type NearbyProfileSummary = {
   interests: string[];
   open_to: string[];
   tone: NearbyTone;
+  profile_character?: ProfileCharacter;
 };
 
 export type NearbyPerson = NearbyProfileSummary & {

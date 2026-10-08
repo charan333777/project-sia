@@ -69,7 +69,7 @@ export function ProfileContactPanel({
     return () => observer.disconnect();
   }, [readOnly, items.length]);
 
-  if (items.length === 0) return null;
+  if (readOnly && items.length === 0) return null;
 
   const copy = async (item: ContactItem, key: string) => {
     try {
@@ -100,7 +100,7 @@ export function ProfileContactPanel({
 
   return (
     <section className="profile-section contact-section" aria-labelledby="contact-heading">
-      <div className="section-eyebrow"><ContactRound size={17} /><h2 id="contact-heading">Reach me</h2></div>
+      <div className="section-eyebrow"><ContactRound size={17} /><h2 id="contact-heading">{items.length ? "Reach me" : "Keep my Sia"}</h2></div>
       <ul className="contact-list">
         {items.map((item, index) => {
           const key = `${item.type}-${index}`;

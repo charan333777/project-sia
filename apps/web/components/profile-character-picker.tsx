@@ -1,5 +1,6 @@
 "use client";
 
+import { moveRadioSelection } from "@/lib/radio-group";
 import { Check, QrCode } from "lucide-react";
 import type { ProfileCharacter } from "@sia/validation";
 import { profileCharacterOptions } from "./profile-characters";
@@ -17,7 +18,7 @@ export function ProfileCharacterPicker({
 }) {
   const options = includePlain ? profileCharacterOptions : profileCharacterOptions.filter((character) => character.id !== "plain");
   return (
-    <div className="profile-character-picker" role="radiogroup" aria-label="Profile character">
+    <div className="profile-character-picker" role="radiogroup" aria-label="Profile character" onKeyDown={moveRadioSelection}>
       {options.map((character) => {
         const selected = value === character.id;
         return (
@@ -25,6 +26,7 @@ export function ProfileCharacterPicker({
             type="button"
             className={`profile-character-option profile-character-option-${character.id} ${selected ? "profile-character-option-selected" : ""}`}
             role="radio"
+            tabIndex={selected ? 0 : -1}
             aria-checked={selected}
             disabled={disabled}
             key={character.id}

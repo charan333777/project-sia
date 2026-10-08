@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { ProfileCard } from "@/components/profile-card";
 import { ProfileViewCounter } from "@/components/profile-view-counter";
 import { ProfileViralCard } from "@/components/profile-viral-card";
@@ -8,19 +9,20 @@ import { absoluteUrl, siteConfig } from "@/lib/site";
 
 type PageProps = { params: Promise<{ username: string }> };
 
-async function loadProfile(username: string) {
+export const preferredRegion = "fra1";
+const loadProfile = cache(async (username: string) => {
   try {
     return await api.getPublicProfile(username);
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) notFound();
     throw error;
   }
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { username } = await params;
   try {
-    const profile = await api.getPublicProfile(username);
+    const profile = await loadProfile(username);
     const description = [profile.role, profile.current_context && `Currently: ${profile.current_context}`].filter(Boolean).join(" · ");
     const canonicalPath = `/u/${profile.username}`;
     const imagePath = `${canonicalPath}/opengraph-image`;
@@ -29,9 +31,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: description || `Meet ${profile.display_name} on Sia.`,
       alternates: { canonical: canonicalPath },
       robots: {
-        index: true,
+        index: profile.list_in_search,
         follow: true,
-        googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+        googleBot: { index: profile.list_in_search, follow: true, "max-image-preview": "large", "max-snippet": -1 },
       },
       openGraph: {
         title: `${profile.display_name} on Sia`,

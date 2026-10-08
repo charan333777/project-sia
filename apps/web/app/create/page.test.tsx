@@ -1,5 +1,7 @@
 import { PROFILE_DRAFT_KEY } from "@sia/shared";
 import type { Profile } from "@sia/validation";
+import userEvent from "@testing-library/user-event";
+import { readWizardDraft } from "@/lib/profile-wizard-draft";
 import { render, screen, waitFor } from "@testing-library/react";
 import { StrictMode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -24,6 +26,9 @@ vi.mock("@/components/auth-provider", () => ({
 
 vi.mock("@/lib/profile-photo-draft", () => ({
   loadProfilePhotoDraft: vi.fn(async () => undefined),
+  loadWizardPhotoDraft: vi.fn(async () => undefined),
+  saveWizardPhotoDraft: vi.fn(async () => undefined),
+  clearWizardPhotoDraft: vi.fn(async () => undefined),
   clearProfilePhotoDraft: vi.fn(async () => undefined),
   saveProfilePhotoDraft: vi.fn(async () => undefined),
 }));
@@ -67,6 +72,32 @@ describe("the create page", () => {
 
     await waitFor(() => expect(mocks.replace).toHaveBeenCalledWith("/profile"));
     expect(screen.queryByLabelText("Username")).toBeNull();
+  });
+
+  it("recovers unfinished progress on remount without creating a completed handoff", async () => {
+    const user = userEvent.setup();
+    const first = render(<CreatePage />);
+    await user.type(await screen.findByLabelText("Your name"), "Maya");
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    await user.click(await screen.findByRole("button", { name: "At a meetup" }));
+    await waitFor(() => expect(readWizardDraft()?.step).toBe(1));
+    first.unmount();
+    render(<CreatePage />);
+    expect(await screen.findByLabelText(/What.s happening/)).toHaveProperty("value", "At a meetup");
+    expect(readWizardDraft()?.value.display_name).toBe("Maya");
+    expect(sessionStorage.getItem(PROFILE_DRAFT_KEY)).toBeNull();
+  });
+
+  it("keeps a returned handoff after another refresh", async () => {
+    sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(savedDraft));
+    mocks.search = "resume=edit";
+    const first = render(<CreatePage />);
+    expect(await screen.findByDisplayValue("taken")).toBeTruthy();
+    await waitFor(() => expect(sessionStorage.getItem(PROFILE_DRAFT_KEY)).toBeNull());
+    first.unmount();
+    render(<CreatePage />);
+    expect(await screen.findByDisplayValue("taken")).toBeTruthy();
+    expect(sessionStorage.getItem(PROFILE_DRAFT_KEY)).toBeNull();
   });
 
   it("starts empty without a resume request, even if a draft is lying around", async () => {

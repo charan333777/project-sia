@@ -1,12 +1,17 @@
 import { ImageResponse } from "next/og";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { getProfileCharacterOption } from "@/components/profile-characters";
 import { api } from "@/lib/api";
 
+export const preferredRegion = "fra1";
 export const alt = "Public Sia profile";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 export default async function ProfileOpenGraphImage({ params }: { params: Promise<{ username: string }> }) {
   const { username } = await params;
+  let avatar: string | null = null;
   let name = `@${username}`;
   let role = "Meet me on Sia";
   let context = "A small profile for real-life moments.";
@@ -16,6 +21,16 @@ export default async function ProfileOpenGraphImage({ params }: { params: Promis
     name = profile.display_name;
     role = profile.role || `@${profile.username}`;
     context = profile.current_context || profile.bio || "See what I’m interested in and open to.";
+    avatar = profile.avatar_url;
+    if (!avatar) {
+      const imageSrc = getProfileCharacterOption(profile.profile_character).imageSrc;
+      if (imageSrc) {
+        try {
+          const bytes = await readFile(path.join(process.cwd(), "public", imageSrc));
+          avatar = `data:${imageSrc.endsWith(".svg") ? "image/svg+xml" : "image/png"};base64,${bytes.toString("base64")}`;
+        } catch { /* Keep the profile text and initials if a bundled image is unavailable. */ }
+      }
+    }
   } catch {
     // The image still provides a useful branded fallback if a profile becomes private.
   }
@@ -30,7 +45,7 @@ export default async function ProfileOpenGraphImage({ params }: { params: Promis
           <span style={{ maxWidth: 720, marginTop: 28, color: "#686663", fontSize: 25, lineHeight: 1.35 }}>{context}</span>
         </div>
         <div style={{ width: 190, height: 190, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #d5ddec", borderRadius: 999, background: "#e8edf8", color: "#526fae", fontSize: 84, fontWeight: 700 }}>
-          {name.slice(0, 1).toUpperCase()}
+          {avatar ? <img src={avatar} width={172} height={172} style={{ borderRadius: 999, objectFit: "cover" }} alt="" /> : name.slice(0, 1).toUpperCase()}
         </div>
       </div>
     </div>,

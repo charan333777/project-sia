@@ -1,5 +1,6 @@
 "use client";
 
+import { moveRadioSelection } from "@/lib/radio-group";
 import { Check } from "lucide-react";
 import type { ProfileTheme } from "@sia/validation";
 import { profileThemeOptions } from "./profile-themes";
@@ -14,7 +15,7 @@ export function ProfileThemePicker({
   disabled?: boolean;
 }) {
   return (
-    <div className="profile-theme-picker" role="radiogroup" aria-label="Personality theme">
+    <div className="profile-theme-picker" role="radiogroup" aria-label="Personality theme" onKeyDown={moveRadioSelection}>
       {profileThemeOptions.map((theme) => {
         const selected = value === theme.id;
         return (
@@ -22,6 +23,7 @@ export function ProfileThemePicker({
             type="button"
             className={`profile-theme-option profile-theme-option-${theme.id} ${selected ? "profile-theme-option-selected" : ""}`}
             role="radio"
+            tabIndex={selected ? 0 : -1}
             aria-checked={selected}
             disabled={disabled}
             key={theme.id}

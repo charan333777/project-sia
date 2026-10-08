@@ -97,6 +97,10 @@ class MemoryProfiles implements ProfileRepository {
     return this.retiredUsernames.has(username);
   }
 
+  async isUsernameTaken(username: string) {
+    return this.records.some((profile) => profile.username === username);
+  }
+
   async purgeDeleted(graceDays: number) {
     const cutoff = Date.now() - graceDays * 24 * 60 * 60_000;
     const due = this.records.filter((p) => p.deleted_at && new Date(p.deleted_at).getTime() <= cutoff);
@@ -201,6 +205,20 @@ describe("profile API", () => {
   });
 
   afterEach(async () => app.close());
+
+  it("checks username availability without exposing a private or deleted profile", async () => {
+    const fresh = await app.inject({ method: "GET", url: "/api/v1/public/usernames/fresh" });
+    expect(fresh.json().data).toEqual({ username: "fresh", available: true });
+    await repository.create("private-owner", { ...input, is_public: false });
+    const taken = await app.inject({ method: "GET", url: "/api/v1/public/usernames/zach" });
+    expect(taken.json().data).toEqual({ username: "zach", available: false });
+    expect(taken.headers["cache-control"]).toBe("no-store");
+    await repository.softDelete("private-owner");
+    expect((await app.inject({ method: "GET", url: "/api/v1/public/usernames/zach" })).json().data.available).toBe(false);
+    repository.retiredUsernames.add("retired");
+    expect((await app.inject({ method: "GET", url: "/api/v1/public/usernames/retired" })).json().data.available).toBe(false);
+    expect((await app.inject({ method: "GET", url: "/api/v1/public/usernames/api" })).statusCode).toBe(400);
+  });
 
   it("rejects protected endpoints without a valid token", async () => {
     const response = await app.inject({ method: "GET", url: "/api/v1/profiles/me" });

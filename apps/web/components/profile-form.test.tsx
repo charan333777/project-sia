@@ -9,7 +9,7 @@ import { emptyProfile, ProfileForm } from "./profile-form";
  * 2026-09-05 bugs lived, and the one thing a schema unit test cannot reach.
  */
 
-/** Walks the wizard to the Reach step, where contact details are entered. */
+/** Optional contacts live in the final review stage. */
 async function openConnectStep(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText("Your name"), "New User");
   await user.clear(screen.getByLabelText("Username"));
@@ -17,22 +17,11 @@ async function openConnectStep(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole("button", { name: /^Next/ }));
   await screen.findByLabelText(/What.s happening/);
   await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByRole("group", { name: /I.m into/ });
-  await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByRole("group", { name: "Open to" });
-  await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByRole("button", { name: "Link" });
+  await user.click(screen.getByText("Ways to reach you", { selector: "summary" }));
 }
 
-/** Advances from Reach through Look and Colour to Visibility, then chooses Public. */
 async function finishWizard(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByText(/How would you like to appear/);
-  await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByText(/Choose your colour mood/);
-  await user.click(screen.getByRole("button", { name: /^Next/ }));
-  await screen.findByText(/Who can open your profile/);
-  await user.click(screen.getByRole("radio", { name: /Public/ }));
+  await user.click(screen.getByRole("radio", { name: /Anyone who scans/ }));
 }
 
 describe("ProfileForm — contact details", () => {
@@ -62,7 +51,7 @@ describe("ProfileForm — contact details", () => {
     await user.click(screen.getByRole("button", { name: "Link" }));
     await user.type(screen.getByLabelText("Link label"), "LinkedIn");
     // A label with no address is a real mistake and must be visible, not discarded.
-    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    await user.click(screen.getByRole("button", { name: "Create my Sia" }));
 
     expect(await screen.findByText("Link cannot be empty.")).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
@@ -78,7 +67,7 @@ describe("ProfileForm — contact details", () => {
     await openConnectStep(user);
     await user.click(screen.getByRole("button", { name: "Link" }));
     await user.type(screen.getByLabelText("Link value"), "javascript:alert(1)");
-    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    await user.click(screen.getByRole("button", { name: "Create my Sia" }));
 
     expect(await screen.findByText(/Enter a web address/)).toBeTruthy();
     expect(onSubmit).not.toHaveBeenCalled();
@@ -196,5 +185,21 @@ describe("ProfileForm — right now", () => {
     await user.click(idea);
     await user.click(idea);
     expect(line.value).toBe("");
+  });
+});
+
+
+describe("three-stage creation", () => {
+  it("saves privately by default without requiring optional personalization", async () => {
+    const user = userEvent.setup();
+    const onSubmit = vi.fn();
+    render(<ProfileForm submitLabel="Save" onSubmit={onSubmit} />);
+    await user.type(screen.getByLabelText("Your name"), "Maya");
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    await user.click(screen.getByRole("button", { name: /^Next/ }));
+    expect(screen.getByRole("radio", { name: /Only me for now/ }).getAttribute("aria-checked")).toBe("true");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSubmit.mock.calls[0]?.[0].is_public).toBe(false);
+    expect(onSubmit.mock.calls[0]?.[0].list_in_search).toBe(false);
   });
 });

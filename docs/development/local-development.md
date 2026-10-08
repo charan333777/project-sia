@@ -39,7 +39,11 @@ pnpm dev
 
 Open `http://localhost:3000`. The API health endpoint is `http://localhost:4000/api/v1/health`.
 
-The create page works without authentication and keeps the unfinished draft in the current browser tab's `sessionStorage`. A successful session triggers the authenticated API write.
+The create page keeps versioned unfinished progress in tab-scoped `sessionStorage`, with a draft-specific photo in IndexedDB. Its completed authentication handoff uses a separate key. A successful session triggers the authenticated API write.
+
+Set `LEGAL_CONTROLLER_NAME`, `LEGAL_CONTROLLER_ADDRESS`, `LEGAL_CONTACT_EMAIL` and `LEGAL_GOVERNING_LAW` in the web server environment (`apps/web/.env.local` locally). These are not browser-prefixed variables. Legal/contact pages are built from these values, so rebuild after changing them. Never invent controller information.
+
+Before deploying the new character pack, apply `202609300001_add_illustrated_profile_characters.sql`, deploy the compatible API and then deploy web. Existing character IDs remain valid.
 
 ## 5. Verify
 
@@ -67,6 +71,6 @@ The container does not assume a hosting vendor. Provide the same API environment
 - An auth configuration message on `/login` means the two browser-safe Supabase variables are missing.
 - `UNAUTHORIZED` normally means the Supabase access token is expired or belongs to a different project than the API configuration.
 - `PROFILE_NOT_FOUND` on the owner route sends the user back to creation; on a public route it renders the polished not-found state.
-- If a public profile is stale for a few seconds after editing, its server fetch uses a 30-second revalidation window.
+- Public profile fetches are uncached across requests; metadata and page rendering share a request-local lookup. Do not introduce shared caching that bypasses private/deleted access checks.
 - If `nearby_presence` is missing, run `supabase db push` or apply `202609010005_add_nearby.sql` in the Supabase SQL editor.
 - If location permission is denied, enable location for the site in the browser and reload `/nearby`.

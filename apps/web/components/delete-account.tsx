@@ -26,6 +26,7 @@ export function DeleteAccount({ profile, token, onDeleted }: { profile: Profile;
     setError("");
     try {
       await api.deleteProfile(token);
+      try { localStorage.removeItem(`sia-event-presets:${profile.user_id}`); } catch { /* browser storage is optional */ }
       onDeleted();
     } catch (caught) {
       setError(caught instanceof ApiRequestError ? caught.message : "We couldn’t delete your Sia. Try again.");

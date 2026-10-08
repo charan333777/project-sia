@@ -22,7 +22,7 @@ export default function TermsPage() {
         {!legalDetailsComplete && (
           <p className="legal-draft" role="note">
             <AlertTriangle size={16} aria-hidden="true" />
-            These terms are not yet complete: the operator and governing-law details below are placeholders.
+            These terms are not yet complete: the operator or governing-law details still need to be supplied.
           </p>
         )}
 

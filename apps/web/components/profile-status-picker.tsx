@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import type { Profile, ProfileStatusDuration, ProfileStatusState } from "@sia/validation";
+import { moveRadioSelection } from "@/lib/radio-group";
 import { api, ApiRequestError } from "../lib/api";
 import {
   profileStatusDurationOptions,
@@ -34,6 +35,8 @@ export function ProfileStatusPicker({
     if (profile.status_duration) setDuration(profile.status_duration);
   }, [profile.status_duration]);
 
+  useEffect(() => { setDetail(profile.status?.detail ?? profile.current_context); }, [profile.status?.detail, profile.current_context]);
+
   async function apply(state: ProfileStatusState, nextDuration: ProfileStatusDuration) {
     setPending(state);
     setError("");
@@ -59,7 +62,7 @@ export function ProfileStatusPicker({
       <h2 id="status-picker-heading">Your status</h2>
       <p className="status-picker-note">Clears itself when the time is up, so your profile can’t go stale.</p>
 
-      <div className="status-choices" role="radiogroup" aria-label="Status">
+      <div className="status-choices" role="radiogroup" aria-label="Status" onKeyDown={moveRadioSelection}>
         {profileStatusOptions.map((option) => {
           const Icon = option.icon;
           const selected = activeState === option.id;
@@ -69,6 +72,7 @@ export function ProfileStatusPicker({
               type="button"
               role="radio"
               aria-checked={selected}
+              tabIndex={selected ? 0 : -1}
               disabled={pending !== null}
               className={`status-choice status-choice-${option.id} ${selected ? "status-choice-selected" : ""}`}
               onClick={() => apply(option.id, duration)}
@@ -83,13 +87,14 @@ export function ProfileStatusPicker({
 
       <div className="status-duration">
         <span className="status-duration-label"><Clock size={16} /> For how long</span>
-        <div className="status-duration-choices" role="radiogroup" aria-label="Status duration">
+        <div className="status-duration-choices" role="radiogroup" aria-label="Status duration" onKeyDown={moveRadioSelection}>
           {profileStatusDurationOptions.map((option) => (
             <button
               key={option.id}
               type="button"
               role="radio"
               aria-checked={duration === option.id}
+              tabIndex={duration === option.id ? 0 : -1}
               disabled={pending !== null}
               className={`chip ${duration === option.id ? "chip-selected" : ""}`}
               onClick={() => {

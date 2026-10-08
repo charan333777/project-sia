@@ -1,142 +1,66 @@
 # Roadmap
 
-What is planned but not built. Items move from here to
-[`progress-log.md`](progress-log.md) once they ship, and the matching row in
-[`overview.md`](overview.md) is updated in the same pass.
+What remains planned. Implemented changes are recorded in
+[`progress-log.md`](progress-log.md) and [`overview.md`](overview.md).
+Last reviewed: 2026-09-30 against the live audit and local implementation.
 
-Last reviewed: 2026-09-04, against the live site.
+## Release the audit improvements
 
-## Next up
+The three-stage wizard, draft/history recovery, sample profile, signed-out Nearby preview,
+contact-link saving, keyboard controls, static illustrated characters, event presets, indexing
+fix and web headers are implemented locally. They are not yet deployed.
 
-### 1. The public profile has no action — the largest gap in the product
+- Supply accurate `LEGAL_CONTROLLER_NAME`, `LEGAL_CONTROLLER_ADDRESS`, `LEGAL_CONTACT_EMAIL`
+  and `LEGAL_GOVERNING_LAW` in the web build environment. `/privacy`, `/terms` and `/contact`
+  already exist; their remaining gap is the actual owner information.
+- Apply `202609300001_add_illustrated_profile_characters.sql`, deploy the compatible API, then web.
+- Verify on physical iOS/Android devices: keyboard/text enlargement, photo selection and camera
+  denial, native sharing and vCard import; check with VoiceOver and reduced motion.
+- Run a two-person Nearby check in a staging environment, including Wave acceptance, expiry,
+  blocking and reporting. The fictional preview is not a substitute for this check.
+- Compare setup completion and time to first usable QR with a baseline. Pilot at a specific
+  meetup/campus/community; local density is an adoption problem as well as a UI problem.
 
-`/u/:username` gives the person who just scanned the QR code a way to **save** the contact (since
-2026-09-05) and an invitation to make their own — but still no way to say hello or reply. Verified
-live on 2026-09-24: no "Say hello" or "Wave" anywhere in the page.
+## QR-origin mutual Hello — product decision required
 
-The homepage used to promise one: its mock showed a **"Say hello 👋"** button that does not exist.
-That sticker was replaced by a real QR code on 2026-09-24, so the site no longer over-promises —
-but the gap it pointed at is still the largest in the product.
+The public scanner can save the name/Sia link and use an owner-interest conversation prompt.
+A Sia-native preset Hello could connect that encounter to an authenticated mutual response.
 
-**The important part: the hello system is already built.** The API has `sendNearbySignal`,
-`respondNearbySignal`, `proposeNearbyMeet`, `respondNearbyMeet`, `sendNearbyMeetStatus`,
-`blockNearbyProfile` and `reportNearbyProfile`. Every one is namespaced `/nearby/*`, so the entire
-connection loop is locked behind the feature that cannot work without local density — while QR,
-which works today with zero other users, has no path into any of it.
+This requires a separate authorization scope: the current Nearby SQL requires active presence
+within 200 m. A copied QR is not evidence of proximity. Design owner opt-in, recipient discovery,
+rate limits/caps, mutual acceptance, expiry, block/report and moderation before exposing it.
+Reuse preset intentions and service patterns without weakening Nearby's proximity rule.
+A permanent inbox or free-form chat remains outside V1.
 
-So this is plumbing, not new product: expose the existing signal/meet loop to the QR flow. For a
-logged-out scanner, "Say hello" doubles as the signup wedge — they create a Sia in order to reply,
-which is the viral loop the product currently lacks.
+## Deeper avatar representation — after the curated release
 
-### 2. No Terms, Privacy Policy or contact route
+Four illustrated people now join the existing four mascots, with photos and initials retained.
+Evaluate whether people want deeper representation before adding a modular avatar configuration
+with versioned allowlisted parts. AI selfie generation would require a separate decision and
+queued jobs, spending caps, consent, private storage and deletion/moderation handling.
+Neither alternative is part of the current static character implementation.
 
-`/terms`, `/privacy`, `/legal`, `/about`, `/contact` and `/support` all return 404, and the footer
-links only Home / Create a profile / Nearby. Sia handles location data and publishes personal
-profiles, with UK and EU users. This is both a legal exposure and a trust gap that undercuts the
-privacy positioning the product otherwise works hard for.
+## Technical follow-ups
 
-### 3. Region move — step (a) shipped 2026-09-05, (b) and (c) remain
+- Review production report-only CSP observations before enforcement; add a nonce strategy for
+  framework scripts and a reporting destination if central collection is needed.
+- Measure public-profile performance after the Frankfurt route preference and request-local
+  fetch deduplication deploy. Any signed-photo URL cache must remain access-aware, expire safely,
+  and stop serving private/deleted profiles. No broad personalized-response cache is planned.
+- Verify whether the old Oregon Render service still exists and remove it if obsolete; historical
+  documentation is not evidence of its current state.
+- Add a moderation workflow for `nearby_reports`, and a data export flow.
+- Review the account-creation entry paths and password policy alongside the auth provider.
+- Root `CHANGELOG.md` still predates the newer feature areas.
 
-**Re-measured 2026-09-05, after the Frankfurt move.** `/u/:username` (server-rendered, hits the
-API) now returns in **0.29–0.45s**, and the API itself answers in **124–206 ms** warm, on a paid
-instance with no cold start. The predicted ~0.4s for step (a) landed almost exactly.
+## Capacity
 
-The old Oregon service `project-sia-w8sz` is **still running and still connected to the production
-database** — a second public entry point to the same data. Deleting it is the remaining part of
-step (a). Beware when benchmarking: that host still answers, ~600 ms warm, and measuring it instead
-of the live one is an easy way to reach a wrong conclusion about latency.
+Previous capacity figures were estimates, not fresh load-test results. Use
+`scripts/nearby-load-test.mjs` against localhost or an explicitly authorized staging target
+before making concurrent-user claims. The harness refuses remote targets without
+`--allow-remote`; do not load-test production as part of routine UI checks.
 
-For history, the pre-move numbers were: homepage **0.07s**, `/u/:username` **0.7–2.0s**, median
-~1.1s. That screen is the most latency-sensitive in the product — someone standing in front of
-another person, holding a phone.
+## Out of scope for V1
 
-The cause is geography. One profile view crosses four regions:
-
-```
-UK phone → Vercel edge London (lhr1) → Vercel SSR Washington DC (iad1)
-         → Render API Oregon → Supabase Frankfurt (×2: DB query + storage signed URL) → back
-```
-
-A single indexed row lookup costs ~200 ms, which is the Oregon↔Frankfurt crossing.
-
-Do these in order — step b makes things *worse* if done before step a:
-
-- **a. ~~Recreate the Render web service in Frankfurt.~~ Done 2026-09-05** — `project-sia-1`,
-  paid instance, and Vercel's `NEXT_PUBLIC_API_URL` repointed to it. Measured ~1.1s → ~0.35s.
-  Outstanding: delete the old Oregon service, which still serves production data.
-- **b. Pin Vercel SSR to `fra1`** with `preferredRegion` on `/u/[username]` and its OG image route
-  (the only dynamic routes). Expected: → ~0.15s.
-- **c. Cache the Supabase Storage signed URL.** Every public profile view mints a fresh one-hour
-  signed URL over the network and discards it — ~0.4s on the critical path.
-
-London was considered and rejected: with API and database co-located, the only difference is the
-user hop (~15 ms), and Render has no London region, so it would mean leaving Render *and* migrating
-the Supabase project and its private storage bucket. Revisit only if UK data residency becomes a
-contractual requirement — that would be a compliance decision, not a performance one.
-
-### 4. Create flow: five steps to three
-
-Design (mobile mockups, states and mapping):
-https://claude.ai/code/artifact/2d182037-fff7-4460-a3c0-8038e4520f80
-
-- Merge the avatar choice into step 1; keep Connect; combine colour mood + visibility as step 3.
-- **Nothing is persisted.** No draft in `localStorage`, and `/create` never changes URL, so the
-  browser back gesture — reflexive on mobile — discards all five steps. Give each step a URL and
-  save a draft.
-- **Neither visibility option is pre-selected**, yet "Create my Sia" is enabled, while the FAQ
-  promises "New profiles are private by default." Pre-select Private.
-- Scroll position is preserved across steps, so the step heading scrolls off after "Next".
-- The live preview sits below the fold on a phone — the payoff is invisible while you type.
-- No username availability check until submit.
-
-### 5. Nearby's logged-out first impression
-
-`/nearby` is promoted with a hero CTA on the homepage, but shows "Preparing Nearby…" for ~3s and
-then hard-redirects to `/login` with no `?next=` return path, greeting a first-time visitor with
-"Welcome back / Good to see you / Your Sia is waiting." Show a real logged-out preview and gate only
-the visibility toggle.
-
-Also: "0 nearby · 0 match your interests" is displayed while the user is hidden and location has
-never been requested, which reads as "nobody uses this."
-
-## Considering
-
-Smaller, verified against the live site on 2026-09-04:
-
-- **QR card shows no readable URL**, so a failed scan has no fallback. Print `siaqr.com/u/<name>`
-  under the code.
-- **Sitemap lists 2 URLs** (`/` and `/create`); public profiles are not enumerated.
-- **No security headers**: CSP, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` and
-  `Permissions-Policy` are all absent. `Permissions-Policy` matters most here, given geolocation.
-- **Password minimum is 6 characters**, which is weak for an account that now publishes contact
-  details. (Google sign-in shipped, and the sign-up tab's `autocomplete` is already `new-password`
-  — both earlier notes here were stale, corrected 2026-09-05.)
-- **Two competing account-creation paths** (`/create` wizard vs `/login` → Sign up) with different
-  mental models.
-- **Avatar status ring**: the status band ships with a countdown ring, but the ring around the
-  avatar (designed, in the artifact above) was skipped because `.profile-avatar` has themed and
-  photo variants and there are no web component tests to catch a regression.
-- **Status is not wired into Nearby.** Deliberate for now — presence keeps its own opt-in and
-  duration. The natural next step is Nearby surfacing only people who are `open` or `around`.
-
-## Capacity notes
-
-Established 2026-09-04 by measurement plus reading the code, not by load test:
-
-- QR scanning and profile viewing: **300–500+ concurrent people** — not the bottleneck.
-- Nearby open simultaneously: was **~45**, now **~200** after the 60-second prune gate.
-- The remaining ceiling is the ~200 ms cross-Atlantic database round trip. The region move above
-  should take Nearby past ~800.
-- `scripts/nearby-load-test.mjs` turns these estimates into measurements. It refuses non-localhost
-  targets without `--allow-remote`; point it at a staging deploy, not production.
-
-## Out of scope for now
-
-Decisions already made for V1, not gaps waiting to be filled:
-
-- Map tiles and exact public location pins
-- A permanent inbox, feed, friends or followers
-- Push notifications
-- Payments
-- AI features
-- An admin dashboard
+Map tiles/exact public pins, permanent inbox/feed/followers, push notifications, payments,
+AI features and a full admin dashboard remain outside V1 until an explicit scope decision.

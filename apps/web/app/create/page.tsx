@@ -1,14 +1,16 @@
 "use client";
 
 import { PROFILE_DRAFT_KEY } from "@sia/shared";
-import type { ProfileInput } from "@sia/validation";
+import { profileWizardDraftSchema, type ProfileWizardDraft, type ProfileInput } from "@sia/validation";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { LoadingState } from "@/components/loading-state";
 import { emptyProfile, ProfileForm, type ProfileFormResume, type ProfilePhotoChange } from "@/components/profile-form";
 import { api, ApiRequestError } from "@/lib/api";
-import { clearProfilePhotoDraft, loadProfilePhotoDraft, saveProfilePhotoDraft } from "@/lib/profile-photo-draft";
+import { clearProfilePhotoDraft, loadProfilePhotoDraft, saveProfilePhotoDraft, clearWizardPhotoDraft, loadWizardPhotoDraft, saveWizardPhotoDraft } from "@/lib/profile-photo-draft";
+
+import { clearWizardDraft, readWizardDraft, saveWizardDraft } from "@/lib/profile-wizard-draft";
 
 const USERNAME_TAKEN = { username: "That username is taken. Try another one." };
 
@@ -23,6 +25,32 @@ function CreateContent() {
   const [start, setStart] = useState<Start | null>(null);
   // Bumped to reopen the wizard on a new starting point, such as a username the API refused.
   const [formKey, setFormKey] = useState(0);
+  const [storageNotice, setStorageNotice] = useState("");
+  const photoQueue = useRef<Promise<void>>(Promise.resolve());
+  const lastPhoto = useRef<Blob | null>(null);
+  const progress = useCallback((draft: ProfileWizardDraft, change: ProfilePhotoChange) => {
+    if (session) return;
+    if (!saveWizardDraft(draft)) setStorageNotice("This browser can’t keep your draft. Keep this tab open until you save.");
+    const photo = change.action === "upload" ? change.photo : null;
+    if (photo === lastPhoto.current) return;
+    lastPhoto.current = photo;
+    photoQueue.current = photoQueue.current.catch(() => undefined)
+      .then(() => photo ? saveWizardPhotoDraft(photo, draft.draft_id) : clearWizardPhotoDraft(draft.draft_id))
+      .then(() => undefined)
+      .catch(() => setStorageNotice("We couldn’t keep your photo between visits. Keep this tab open until you save."));
+  }, [session]);
+  const discard = async () => {
+    await photoQueue.current;
+    const wizardId = clearWizardDraft();
+    if (wizardId) await clearWizardPhotoDraft(wizardId).catch(() => undefined);
+    sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    await clearProfilePhotoDraft().catch(() => undefined);
+    lastPhoto.current = null;
+    setError("");
+    setStorageNotice("");
+    setStart({ value: emptyProfile });
+    setFormKey((key) => key + 1);
+  };
 
   useEffect(() => {
     if (authLoading || start) return;
@@ -47,17 +75,32 @@ function CreateContent() {
       // saved, and "Back to edit" does the same before sign-up.
       const reason = params.get("resume");
       const raw = reason ? sessionStorage.getItem(PROFILE_DRAFT_KEY) : null;
-      if (!raw) { setStart({ value: emptyProfile }); return; }
+      if (!raw) {
+        const saved = session ? null : readWizardDraft();
+        const photo = saved?.avatar_mode === "photo" ? await loadWizardPhotoDraft(saved.draft_id).catch(() => undefined) : undefined;
+        if (!active) return;
+        setStart(saved ? { value: saved.value, resume: { draftId: saved.draft_id, step: saved.step, photo, avatarMode: saved.avatar_mode, usernameTouched: saved.username_touched } } : { value: emptyProfile });
+        return;
+      }
       let value: ProfileInput = emptyProfile;
-      try { value = { ...emptyProfile, ...(JSON.parse(raw) as Partial<ProfileInput>) }; } catch { /* start fresh */ }
+      const draftId = crypto.randomUUID();
+      try {
+        const parsed = profileWizardDraftSchema.safeParse({ version: 1, draft_id: draftId, step: 0, avatar_mode: "initial", username_touched: true, value: { ...emptyProfile, ...JSON.parse(raw) } });
+        if (parsed.success) value = parsed.data.value;
+      } catch { /* malformed handoff: start fresh */ }
       const photo = await loadProfilePhotoDraft().catch(() => undefined);
       if (!active) return;
-      // The form holds the draft from here on. Left in storage while signed in, `/login`
-      // would replay it on every later visit. Removed only now, once nothing can cancel the
-      // hand-over, so an interrupted run leaves it for the next one to pick up.
+      // Save unfinished work separately before consuming the completed handoff.
+      // Only /login reads PROFILE_DRAFT_KEY, so refreshing here cannot replay it.
+      if (!session) {
+        saveWizardDraft({ version: 1, draft_id: draftId, step: 0, avatar_mode: photo ? "photo" : value.profile_character === "plain" ? "initial" : "character", username_touched: true, value });
+        if (photo) await saveWizardPhotoDraft(photo, draftId).catch(() => undefined);
+        if (!active) return;
+      }
       sessionStorage.removeItem(PROFILE_DRAFT_KEY);
       if (reason === "details") setError("We couldn’t save some of those details. Check them, then try again.");
-      setStart({ value, resume: { photo, errors: reason === "username" ? USERNAME_TAKEN : undefined } });
+      setStart({ value, resume: { photo, draftId, errors: reason === "username" ? USERNAME_TAKEN : undefined } });
+
     };
     void prepare();
     return () => { active = false; };
@@ -70,12 +113,13 @@ function CreateContent() {
       // A draft exists only to survive the trip through authentication. Writing one while
       // signed in leaves a copy behind that `/login` replays on every later visit, which
       // is how a single failure here became an error nobody could get past.
-      sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(profile));
       try {
+        await photoQueue.current;
         if (photoChange.action === "upload") await saveProfilePhotoDraft(photoChange.photo);
         else await clearProfilePhotoDraft();
+        sessionStorage.setItem(PROFILE_DRAFT_KEY, JSON.stringify(profile));
       } catch {
-        setError("We couldn’t keep that photo for the next step. Please try again.");
+        setError("We couldn’t keep your draft for the next step. Keep this tab open and try again.");
         setSubmitting(false);
         return;
       }
@@ -93,6 +137,8 @@ function CreateContent() {
       // Never replace the photo on a Sia this wizard did not create.
       if (created && photoChange.action === "upload") await api.uploadProfilePhoto(photoChange.photo, session.access_token);
       sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+      const wizardId = clearWizardDraft();
+      if (wizardId) await clearWizardPhotoDraft(wizardId).catch(() => undefined);
       await clearProfilePhotoDraft().catch(() => undefined);
       router.push(created ? "/profile?created=1" : "/profile?existing=1");
     } catch (caught) {
@@ -112,8 +158,9 @@ function CreateContent() {
   return (
     <main className="page-shell create-shell">
       <div className="builder-shell">
-        <div className="page-intro"><span className="eyebrow">Your Sia</span><h1>Let’s make it yours.</h1></div>
-        <ProfileForm key={formKey} initialValue={start.value} resume={start.resume} submitLabel="Create my Sia ✨" submitting={submitting} serverError={error} onSubmit={submit} />
+        <div className="page-intro"><span className="eyebrow">Your Sia</span><h1>Let’s make it yours.</h1><p>Three small steps. Create a free account to save it.</p></div>
+        {storageNotice && <p className="form-error" role="status">{storageNotice}</p>}
+        <ProfileForm key={formKey} initialValue={start.value} resume={start.resume} submitLabel="Save my Sia" checkUsername rememberProgress onProgress={progress} onDiscard={() => void discard()} submitting={submitting} serverError={error} onSubmit={submit} />
       </div>
     </main>
   );

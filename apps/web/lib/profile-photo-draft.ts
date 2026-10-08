@@ -18,10 +18,12 @@ async function runTransaction<T>(mode: IDBTransactionMode, operation: (store: ID
   return await new Promise<T>((resolve, reject) => {
     const transaction = database.transaction(STORE_NAME, mode);
     const request = operation(transaction.objectStore(STORE_NAME));
-    request.onsuccess = () => resolve(request.result);
+    let result: T;
+    request.onsuccess = () => { result = request.result; };
     request.onerror = () => reject(request.error);
-    transaction.oncomplete = () => database.close();
-    transaction.onerror = () => reject(transaction.error);
+    transaction.oncomplete = () => { database.close(); resolve(result); };
+    transaction.onerror = () => { database.close(); reject(transaction.error); };
+    transaction.onabort = () => { database.close(); reject(transaction.error); };
   });
 }
 
@@ -35,4 +37,15 @@ export async function loadProfilePhotoDraft() {
 
 export async function clearProfilePhotoDraft() {
   await runTransaction("readwrite", (store) => store.delete(PHOTO_KEY));
+}
+
+const WIZARD_PHOTO_KEY = "wizard-photo";
+export async function saveWizardPhotoDraft(photo: Blob, draftId: string) {
+  await runTransaction("readwrite", (store) => store.put(photo, `${WIZARD_PHOTO_KEY}:${draftId}`));
+}
+export async function loadWizardPhotoDraft(draftId: string) {
+  return await runTransaction<Blob | undefined>("readonly", (store) => store.get(`${WIZARD_PHOTO_KEY}:${draftId}`));
+}
+export async function clearWizardPhotoDraft(draftId: string) {
+  await runTransaction("readwrite", (store) => store.delete(`${WIZARD_PHOTO_KEY}:${draftId}`));
 }

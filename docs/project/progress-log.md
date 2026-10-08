@@ -3,6 +3,65 @@
 What has shipped, newest first. One entry per meaningful change: what it was, why it mattered, and
 where it lives. Entries below the 2026-09-04 line were reconstructed from git history.
 
+## 2026-10-08 — First-run UX polish from the market review (implemented locally, pending deployment)
+
+The private QR state no longer dead-ends at Edit: it offers a one-tap **Make my QR scannable**
+that flips `is_public` through the API and drops straight into the QR view, keeping a quiet
+**More visibility options** link for the full editor (`apps/web/app/profile/qr/page.tsx`).
+
+Visibility options are now phrased around the moment rather than the setting — **Anyone who scans**
+/ **Only me for now** — in the shared `VisibilityChoice`, leaving the private database default
+untouched (`apps/web/components/profile-form.tsx`). Tests updated to the new radio labels.
+
+Accessibility and layout fixes in `apps/web/app/globals.css`: added a `--brand-ink: #405b97`
+token for small brand-coloured text (the `#617fc0` brand stays for fills, borders and large
+accents, since it fails AA at 3.37:1 on body text) and consolidated the existing `#405b97`
+literals onto it; on the phone create flow the Open-to/Interests `.tag-count` no longer overlaps
+the picker's helper line.
+
+Validation: typecheck and all tests pass (23 validation, 30 API, 80 web).
+
+## 2026-09-30 — Live-audit improvements (implemented locally, pending deployment)
+
+Reduced creation to three stages with optional polish, a clear account notice and private default.
+Signed-out progress restores across refresh and browser step history; photos use a draft-specific
+IndexedDB key separate from the completed authentication handoff. Explicit discard and successful
+handoff clear both. Added an early, debounced username check with a rate-limited availability API.
+
+The homepage now offers `/demo` and its example QR opens that fictional interactive profile.
+Signed-out `/nearby` shows a fictional preview without location or Waves, while the real empty
+state offers the QR fallback. Public cards add owner-interest conversation prompts and allow
+saving a name/Sia-link contact without published phone/email. Mobile explanation cards are compact.
+
+Added four static illustrated people alongside the existing mascots and initials, with shared
+validation, a new database constraint migration, Nearby summary rendering and OG previews.
+Character, theme, appearance, visibility and status radio controls now support arrow navigation
+and one tab stop. Event presets on the QR page require an explicit Open-for-3h action and keep
+location opt-in separate. Custom presets stay on the device, scoped to the owner, with removal.
+
+Unlisted public profiles now receive `noindex`; public server rendering uses request-local
+deduplication and Frankfurt preference. Web headers include frame protection, nosniff, referrer
+and permissions policy, plus a production report-only CSP. Legal pages use four server-configured
+values and `/contact` exposes the email only when valid. Actual legal details are still needed.
+
+Validation: 133 tests pass (23 validation, 30 API, 80 web); typecheck and production build pass.
+Local Chromium checks covered mobile refresh/step history/photo recovery, fictional demos,
+contact download, listed/unlisted robots and missing-profile 404. A read-only fictional local API
+fixture supported public-page checks; no production account was used. OG character output was
+rendered and all eight artwork assets are present in the build trace. At 320 × 568, the three-stage
+builder has no horizontal overflow and its navigation remains reachable. Limited axe A/AA checks
+on the identity and review stages found no automatic violations. Physical-device and
+two-person live Nearby checks remain outstanding.
+
+Primary sources: `components/profile-form.tsx`, `app/create/page.tsx`,
+`lib/profile-wizard-draft.ts`, `lib/profile-photo-draft.ts`, `components/sample-experience.tsx`,
+`components/nearby-introduction.tsx`, `components/event-ready-panel.tsx`,
+`app/u/[username]/page.tsx`, `next.config.ts`, and the 202609300001 migration.
+
+Deploy in order: database constraint migration, compatible API, then web. No production writes,
+commit, push or deployment were made. Modular/AI avatar generation and QR-origin mutual Hello
+remain separate product proposals; existing Nearby proximity authorization is preserved.
+
 ## 2026-09-24 — Live check of the two batches, and two layout fixes
 
 Both batches below were checked on siaqr.com after deploy: copy, share text and image, manifest,

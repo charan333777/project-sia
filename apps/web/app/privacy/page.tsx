@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         {!legalDetailsComplete && (
           <p className="legal-draft" role="note">
             <AlertTriangle size={16} aria-hidden="true" />
-            This policy is not yet complete: the controller and contact details below are placeholders.
+            This policy is not yet complete: the controller or contact details still need to be supplied.
           </p>
         )}
 
@@ -43,6 +43,7 @@ export default function PrivacyPage() {
             <li><strong>Contact details you add.</strong> Links, email addresses and phone numbers. Each one is private until you mark it public — see below.</li>
             <li><strong>Location, only if you turn on Nearby.</strong> Off by default.</li>
             <li><strong>How often your profile is opened.</strong> A count per day, and nothing else.</li>
+            <li><strong>Drafts and presets on your device.</strong> Unfinished setup stays in this browser tab, with a chosen photo held on your device until you save or discard it. Optional event presets stay on this device and can be removed from the QR page.</li>
           </ul>
         </section>
 

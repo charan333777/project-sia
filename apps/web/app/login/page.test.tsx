@@ -32,6 +32,9 @@ vi.mock("@/lib/supabase", () => ({
 
 vi.mock("@/lib/profile-photo-draft", () => ({
   loadProfilePhotoDraft: mocks.loadPhoto,
+  loadWizardPhotoDraft: vi.fn(async () => undefined),
+  saveWizardPhotoDraft: vi.fn(async () => undefined),
+  clearWizardPhotoDraft: vi.fn(async () => undefined),
   clearProfilePhotoDraft: mocks.clearPhoto,
   saveProfilePhotoDraft: vi.fn(),
 }));

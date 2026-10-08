@@ -46,3 +46,10 @@ videos/
 *.[Pp][Nn][Gg]
 *.[Jj][Pp][Gg]
 *.[Jj][Pp][Ee][Gg]
+
+# October desktop — local canvas state
+.october/
+
+# October (generated — context bus / browser MCP)
+.codex/config.toml
+.codex/hooks.json

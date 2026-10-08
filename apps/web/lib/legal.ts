@@ -1,25 +1,23 @@
 /**
  * The details a privacy policy and terms of service must name, gathered in one place.
  *
- * These are legal identifiers, not copy. They are placeholders until Charan fills them in
- * — a policy that names no controller and gives no contact address does not satisfy UK or
- * EU requirements, and the pages say so plainly rather than pretending otherwise.
+ * Supply accurate owner details through server environment configuration before release.
+ * The pages keep a visible warning while required information is missing.
  */
 export const legalConfig = {
   /** The legal entity or individual responsible for the data. */
-  controllerName: "TODO: registered name of the data controller",
+  controllerName: process.env.LEGAL_CONTROLLER_NAME?.trim() || "Controller name not yet provided",
   /** A postal address is required for a UK/EU-facing privacy notice. */
-  controllerAddress: "TODO: postal address",
+  controllerAddress: process.env.LEGAL_CONTROLLER_ADDRESS?.trim() || "Postal address not yet provided",
   /** Where people send privacy questions and erasure requests. */
-  contactEmail: "TODO: contact@yourdomain",
+  contactEmail: process.env.LEGAL_CONTACT_EMAIL?.trim() || "Contact email not yet provided",
   /** Country whose law governs the terms, and whose courts hear disputes. */
-  governingLaw: "TODO: e.g. England and Wales",
+  governingLaw: process.env.LEGAL_GOVERNING_LAW?.trim() || "Governing law not yet provided",
   /** ICO registration reference, if registered. */
   supervisoryAuthority: "Information Commissioner’s Office (ICO), United Kingdom",
-  lastUpdated: "5 September 2026",
+  lastUpdated: "30 September 2026",
 } as const;
 
-/** True once every placeholder has been replaced, so the pages can stop warning. */
-export const legalDetailsComplete = !Object.values(legalConfig).some(
-  (value) => typeof value === "string" && value.startsWith("TODO:"),
-);
+/** Valid contact address enables the mail link; complete details remove the page warning. */
+export const legalContactAvailable = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(legalConfig.contactEmail);
+export const legalDetailsComplete = [process.env.LEGAL_CONTROLLER_NAME, process.env.LEGAL_CONTROLLER_ADDRESS, process.env.LEGAL_GOVERNING_LAW].every((value) => Boolean(value?.trim())) && legalContactAvailable;

@@ -21,6 +21,7 @@ export interface ProfileRepository {
   restore(userId: string): Promise<StoredProfile | null>;
   /** True when the name belongs to a purged account and can never be reissued. */
   isUsernameRetired(username: string): Promise<boolean>;
+  isUsernameTaken(username: string): Promise<boolean>;
   /**
    * Purges profiles whose grace window has closed and retires their usernames.
    * Returns the storage paths of purged avatars so the caller can delete the files.

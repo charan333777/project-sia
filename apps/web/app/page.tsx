@@ -126,7 +126,7 @@ export default function HomePage() {
             <p className="hero-lede">Sia makes the first conversation more meaningful. One scan shows who you are and what you’re open to right now.</p>
             <div className="hero-actions" data-nosnippet="">
               <HomeCta />
-              <ButtonLink href="#how-it-works" variant="secondary">See how <ArrowDown size={17} /></ButtonLink>
+              <ButtonLink href="/demo" variant="secondary">Try a sample Sia <ArrowRight size={17} /></ButtonLink>
             </div>
             <div className="trust-line" aria-label="Sia benefits" data-nosnippet="">
               <span>Free</span>
@@ -147,10 +147,10 @@ export default function HomePage() {
             {/* The card on its own reads as "a profile"; the code beside it is the part that says
                 how it reaches someone. The caption changes on a phone, where scanning your own
                 screen is not an option. */}
-            <Link className="hero-qr" href="/create">
-              <HeroQr value={absoluteUrl("/create")} />
-              <span className="hero-qr-point">Scan to make yours</span>
-              <span className="hero-qr-touch">Yours in 2 min</span>
+            <Link className="hero-qr" href="/demo">
+              <HeroQr value={absoluteUrl("/demo")} />
+              <span className="hero-qr-point">Scan the example</span>
+              <span className="hero-qr-touch">Try this Sia</span>
             </Link>
           </div>
         </section>

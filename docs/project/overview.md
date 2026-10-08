@@ -1,7 +1,7 @@
 # Sia — project overview
 
 The single place to understand what Sia is and where it stands. Read this before opening source
-files. Last verified: 2026-09-09.
+files. Last reviewed locally: 2026-09-30. The changes below marked pending deployment are in the working tree; production has not been changed.
 
 ## What Sia is
 
@@ -17,8 +17,9 @@ Homepage → build a profile draft (no account yet) → sign up → API saves th
     → opt-in Nearby → mutual Wave → temporary Meet Card
 ```
 
-The draft lives in `sessionStorage` (and IndexedDB for a chosen photo) until authentication. No
-anonymous database row is ever created.
+Unfinished signed-out progress lives in a separate, versioned `sessionStorage` record, with a
+draft-specific IndexedDB photo key. Step history survives Back/Forward and refresh. Only a submitted
+draft enters the authentication handoff record. No anonymous database row is ever created.
 
 ## Current stage — V1 is shipped and live
 
@@ -37,20 +38,33 @@ secrets are recorded here or anywhere in the repo.
 
 | Area | State | Primary source |
 | --- | --- | --- |
-| Profile create / edit / public view | Done — create is an 8-step wizard; on phones it fits one screen with a compact live preview on top, and "Right now" offers tap-to-fill ideas. The owner page leads with **Show my QR** above the card. On the public card, Save contact floats on phones and a "Made with Sia" invitation closes the page (all not yet deployed) | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/components/profile-preview-strip.tsx`, `apps/web/app/profile/page.tsx`, `apps/web/app/u/[username]/page.tsx` |
+| Profile create / edit / public view | Done — three stages (You, Your moment, Review), with optional appearance, interests, contacts and theme. Private is preselected; debounced username availability checks give early feedback. Public cards offer a conversation prompt and save-name/link contact even without published details. Pending deployment | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-form.tsx`, `apps/web/components/profile-preview-strip.tsx`, `apps/web/app/profile/page.tsx`, `apps/web/app/u/[username]/page.tsx` |
 | Profile status | Done, live (seen on siaqr.com 2026-09-22) — four states (`open`/`around`/`focused`/`off`) with a server-derived expiry. While nothing is showing, the owner page offers **Open for 3h** in one tap (not yet deployed) | `apps/api/src/services/profile-service.ts`, `apps/web/components/profile-status-picker.tsx`, `apps/web/components/profile-status-panel.tsx`, `apps/web/components/profile-status-nudge.tsx` |
 | Authentication | Done — Supabase email/password, sign-up, login, password reset | `apps/web/components/auth-provider.tsx`, `apps/api/src/auth/supabase-auth-provider.ts` |
-| Pre-auth draft handoff | Done — profile in `sessionStorage`, photo in IndexedDB, written after the session exists. A draft is written only while signed out, and a failure is classified so an unrepeatable one goes back to `/create?resume=` to be fixed rather than replayed forever. Sign-up shows the draft's handle with "Back to edit" (not yet deployed) | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx`, `apps/web/app/create/page.tsx` |
-| QR code + poster export | Done — generated on demand from the canonical URL, never stored; downloadable SVG poster. The on-screen card shows the live status or "right now" line and the poster shows **Open to**; the QR page offers Add to Home Screen, and the installed app opens straight to it (not yet deployed) | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx`, `apps/web/lib/qr-poster.ts`, `apps/web/components/home-screen-tip.tsx`, `apps/web/app/manifest.ts` |
+| Pre-auth draft handoff | Done — separate unfinished progress and completed authentication handoff; refresh, step history, explicit discard and photo recovery. Signed-in drafts are never persisted for login replay. Pending deployment | `apps/web/lib/profile-photo-draft.ts`, `apps/web/lib/profile-handoff.ts`, `apps/web/app/login/page.tsx`, `apps/web/app/create/page.tsx` |
+| QR code + poster export | Done — canonical black-on-white QR and SVG poster; status/context, home-screen tip and optional expiring event presets. A private profile offers one-tap "Make my QR scannable" instead of dead-ending at Edit. Custom presets are device-local and owner-scoped; applying one never enables Nearby. Pending deployment | `apps/web/app/profile/qr/page.tsx`, `apps/web/components/qr-viewer.tsx`, `apps/web/lib/qr-poster.ts`, `apps/web/components/home-screen-tip.tsx`, `apps/web/app/manifest.ts` |
 | Account deletion | Done — 30-day soft delete, hidden immediately, username retired permanently on purge | `apps/api/src/services/profile-service.ts`, `apps/web/components/delete-account.tsx`, `apps/web/app/profile/deleted/page.tsx` |
 | Scan counts | Done — per-day integer per profile, counted from the browser so crawlers do not inflate it; the owner's own `?preview=1` is not counted (not yet deployed) | `apps/web/components/profile-view-counter.tsx`, `apps/web/components/profile-views.tsx` |
-| Terms & privacy | Pages published; controller and governing-law details are placeholders in `apps/web/lib/legal.ts` | `apps/web/app/privacy/page.tsx`, `apps/web/app/terms/page.tsx` |
-| Search listing | Done — per-profile opt-in, default off; only opted-in profiles enter `sitemap.xml` | `apps/web/app/sitemap.ts` |
-| Contact card | Done — up to 8 links/emails/phones, each published or hidden individually; copy and vCard export on the public card | `packages/validation/src/profile.ts`, `apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`, `apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts` |
-| Personalisation | Done — 4 themes (calm/warm/bold/play), 5 characters (plain/puppy/elephant/panda/play) | `apps/web/components/profile-themes.ts`, `apps/web/components/profile-characters.ts`, `apps/web/public/mascots/` |
+| Terms & privacy | Pages exist; controller/address/contact/law now use server environment configuration. Contact route is ready. Accurate owner details remain required; pending deployment | `apps/web/app/privacy/page.tsx`, `apps/web/app/terms/page.tsx` |
+| Search listing | Done — per-profile opt-in, default off; sitemap and robots indexing both follow opt-in. Robots change pending deployment | `apps/web/app/sitemap.ts` |
+| Contact card | Done — private/public links, emails and phones; copy and vCard export. Saving only a name and Sia URL is supported without an account. Pending deployment | `packages/validation/src/profile.ts`, `apps/api/src/services/profile-service.ts`, `apps/web/components/contact-items-editor.tsx`, `apps/web/components/profile-contact-panel.tsx`, `apps/web/lib/vcard.ts` |
+| Personalisation | Done — 4 themes; initials, 4 existing mascots and 4 new illustrated people. Static IDs/assets; no generation service. New constraint migration and API must precede web deployment | `apps/web/components/profile-themes.ts`, `apps/web/components/profile-characters.ts`, `apps/web/public/mascots/` |
 | Profile photos | Done — private bucket, file-signature check, EXIF/XMP/IPTC stripped server-side, 1-hour signed URLs | `apps/api/src/services/profile-photo-storage.ts` |
-| Nearby | Done — opt-in presence, 200 m PostGIS search, preset Waves, 2-hour connections, Meet Cards, blocks, reports | `apps/api/src/services/nearby-service.ts`, `apps/api/src/repositories/postgres-nearby-repository.ts`, `apps/web/components/nearby-experience.tsx` |
-| SEO / discoverability | Done — metadata, OG images, sitemap, robots, web manifest, JSON-LD (Organization, WebSite, SoftwareApplication, FAQPage, ProfilePage). A missing profile returns a real 404, and home-screen icons are PNG (not yet deployed) | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/sitemap.ts`, `apps/web/lib/site.ts` |
+| Nearby | Done — opt-in presence, 200 m discovery, preset Waves, expiring connections/Meet Cards, blocks/reports. Signed-out fictional preview, illustrated characters and empty-state QR fallback added; pending deployment | `apps/api/src/services/nearby-service.ts`, `apps/api/src/repositories/postgres-nearby-repository.ts`, `apps/web/components/nearby-experience.tsx` |
+| SEO / discoverability | Done — metadata, OG, sitemap, manifest and JSON-LD. Indexing follows listing opt-in; request-local profile fetch deduplication, Frankfurt route preference and character/photo OG previews. Web security headers plus production report-only CSP added; pending deployment | `apps/web/app/layout.tsx`, `apps/web/app/page.tsx`, `apps/web/app/sitemap.ts`, `apps/web/lib/site.ts` |
+
+
+## 2026-09-30 local release notes
+
+`/demo` is an interactive fictional scanner experience linked by the homepage CTA and example QR.
+The signed-out Nearby preview makes no real location or interaction requests. Mobile homepage
+explanation cards now form a compact three-column row. See `apps/web/components/sample-experience.tsx` and
+`apps/web/components/nearby-introduction.tsx`.
+
+Before deployment, apply `supabase/migrations/202609300001_add_illustrated_profile_characters.sql`,
+deploy the compatible API, then the web app. Configure the four `LEGAL_*` values in the web
+environment before its build. The CSP is report-only; enforcement and a nonce strategy remain
+follow-up work. No production database migration or deployment was performed in this pass.
 
 ## How Nearby works
 
@@ -128,7 +142,7 @@ server-only credential. Columns and constraints: [database schema](../database/s
 - The QR code stays a conventional high-contrast black-on-white code with a clean quiet zone;
   mascots and colour are decoration outside the panel only — see
   [the QR prototype decision](../design/sia-elephant-qr-final-prototype.md).
-- `/nearby` is `noindex`; public profiles at `/u/:username` are indexable.
+- `/nearby` and `/demo` are `noindex`; only public profiles with `list_in_search: true` are indexable.
 - **No `loading.tsx` above `/u/[username]`.** A Suspense boundary there sends the 200 before
   `notFound()` runs, so a missing profile answers 200 again. `app/loading.tsx` was removed for this;
   `/u/[username]` is the only page that loads data on the server.
@@ -157,7 +171,7 @@ server-only credential. Columns and constraints: [database schema](../database/s
 - Scan counts hold **an integer and a date, per profile**. There is nowhere in the schema to record a
   visitor, and counting happens in the browser so crawlers and link previews stay out of the number.
 - **Listed is not the same as public.** `list_in_search` is a separate opt-in, default false; only
-  opted-in profiles enter `sitemap.xml`.
+  opted-in profiles enter `sitemap.xml` and receive indexable robots metadata.
 - The web API client must not send `Content-Type: application/json` on a bodyless request — Fastify
   rejects it before routing. `apps/web/lib/api.test.ts` guards this.
 - The service role key never reaches the browser.
@@ -167,16 +181,16 @@ server-only credential. Columns and constraints: [database schema](../database/s
 Facts, not recommendations:
 
 - Web coverage is narrow but real — `@sia/web` runs `vitest run` in jsdom over the profile form, the
-  login hand-off and their helpers. Other components, the QR page and the public profile have no
-  rendering tests yet. Coverage elsewhere is validation schemas plus API route tests against fake
+  login hand-off, draft storage, keyboard controls, contact export, event presets and public indexing.
+  Physical-phone sharing/contact import and a two-person live Nearby session still need release QA. Coverage elsewhere is validation schemas plus API route tests against fake
   providers.
 - Root `CHANGELOG.md` still describes 1.0.0 only; it predates themes, characters, photos, Nearby and
   the SEO pass.
 - Empty leftover route folders: `apps/web/app/nearby-qa/` and `apps/web/app/qr-personality-demo/`.
 - No data export flow. Deletion exists; export on request is described in the privacy policy but not
   automated.
-- `apps/web/lib/legal.ts` still holds `TODO:` placeholders for the data controller, postal address,
-  contact email and governing law. Both legal pages show a visible warning until they are filled in.
+- The four `LEGAL_*` server environment values are not yet supplied. Legal pages retain an honest
+  incomplete-details warning, and `/contact` cannot send email until the contact address is configured.
 - `nearby_reports` has no admin or moderation surface; rows accumulate unread.
 - V1 deliberately has no map tiles, exact pins, permanent inbox, feed, friends/followers, push
   notifications, payments, AI, or admin dashboard.

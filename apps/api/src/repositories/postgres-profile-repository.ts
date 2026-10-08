@@ -121,6 +121,13 @@ export class PostgresProfileRepository implements ProfileRepository {
     return Boolean(row);
   }
 
+  async isUsernameTaken(username: string): Promise<boolean> {
+    const [row] = await this.sql<{ taken: boolean }[]>`
+      SELECT EXISTS(SELECT 1 FROM profiles WHERE username = ${username}) AS taken
+    `;
+    return row?.taken ?? false;
+  }
+
   async purgeDeleted(graceDays: number): Promise<string[]> {
     // One transaction: retire the names, then drop the rows. Views and other dependent
     // rows go with them through their cascades.

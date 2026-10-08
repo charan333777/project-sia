@@ -17,7 +17,7 @@ The versioned schema is maintained in `supabase/migrations/`.
 | `open_to` | text[] | Up to 10 interaction signals |
 | `is_public` | boolean | Defaults to false |
 | `profile_theme` | text | One of `calm`, `warm`, `bold`, or `play` |
-| `profile_character` | text | One of `plain`, `puppy`, `elephant`, `panda`, or `play`; defaults to `plain` |
+| `profile_character` | text | Allowlisted character ID from `packages/validation/src/profile.ts`; defaults to `plain`. Extended by `202609300001_add_illustrated_profile_characters.sql` |
 | `status_state` | text | One of `open`, `around`, `focused`, or `off`; defaults to `off` |
 | `status_duration` | text | One of `30m`, `1h`, `3h`, `8h`; null when the state is `off` |
 | `status_expires_at` | timestamptz | When the status stops being shown; null when the state is `off` |

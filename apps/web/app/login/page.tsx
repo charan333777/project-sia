@@ -1,5 +1,7 @@
 "use client";
 
+import { clearWizardDraft } from "@/lib/profile-wizard-draft";
+import { clearWizardPhotoDraft } from "@/lib/profile-photo-draft";
 import { PROFILE_DRAFT_KEY } from "@sia/shared";
 import { profileInputSchema } from "@sia/validation";
 import { ArrowLeft, ArrowRight, Check, Eye, EyeOff, MailCheck } from "lucide-react";
@@ -80,6 +82,8 @@ function LoginForm() {
 
   const discardDraft = useCallback(async () => {
     sessionStorage.removeItem(PROFILE_DRAFT_KEY);
+    const wizardId = clearWizardDraft();
+    if (wizardId) await clearWizardPhotoDraft(wizardId).catch(() => undefined);
     setHasDraft(false);
     await clearProfilePhotoDraft().catch(() => undefined);
   }, []);

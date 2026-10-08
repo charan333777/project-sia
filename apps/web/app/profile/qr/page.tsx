@@ -5,6 +5,7 @@ import type { ProfileCharacter, ProfileTheme } from "@sia/validation";
 import { useEffect, useRef, useState } from "react";
 import { Button, ButtonLink } from "@/components/button";
 import { HomeScreenTip } from "@/components/home-screen-tip";
+import { EventReadyPanel } from "@/components/event-ready-panel";
 import { LoadingState } from "@/components/loading-state";
 import { ProfileCharacterPicker } from "@/components/profile-character-picker";
 import { getProfileCharacter, getProfileCharacterOption } from "@/components/profile-characters";
@@ -31,6 +32,7 @@ export default function QrPage() {
   const { profile, setProfile, loading, error, session } = useOwnedProfile();
   const [status, setStatus] = useState("");
   const [savingStyle, setSavingStyle] = useState(false);
+  const [publishing, setPublishing] = useState(false);
   const [customising, setCustomising] = useState(false);
   const personalityPanel = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -38,7 +40,32 @@ export default function QrPage() {
   }, [customising]);
   if (loading) return <LoadingState label="Preparing your QR…" />;
   if (error || !profile) return <div className="empty-state"><div><h1>We hit a snag.</h1><p>{error}</p></div></div>;
-  if (!profile.is_public) return <main className="empty-state"><div><span className="empty-symbol"><LockKeyhole /></span><h1>Your Sia is private.</h1><p>Make it public before sharing.</p><ButtonLink href="/profile/edit">Choose visibility</ButtonLink></div></main>;
+  const makePublic = async () => {
+    if (!session || publishing) return;
+    setPublishing(true);
+    setStatus("");
+    try {
+      const updated = await api.updateProfile({ is_public: true }, session.access_token);
+      setProfile(updated);
+    } catch {
+      setStatus("Couldn’t make it scannable — try again.");
+      setPublishing(false);
+    }
+  };
+  if (!profile.is_public) return (
+    <main className="empty-state">
+      <div>
+        <span className="empty-symbol"><LockKeyhole /></span>
+        <h1>Your Sia is private.</h1>
+        <p>Turn it on so anyone can open it from your QR. You stay in control and can switch it back any time.</p>
+        <div className="empty-state-actions">
+          <Button onClick={() => void makePublic()} loading={publishing}>Make my QR scannable</Button>
+          <ButtonLink href="/profile/edit" variant="quiet">More visibility options</ButtonLink>
+        </div>
+        <p className="copy-status" role="status">{status ? <><Check size={14} /> {status}</> : ""}</p>
+      </div>
+    </main>
+  );
   const origin = (process.env.NEXT_PUBLIC_SITE_URL ?? window.location.origin).replace(/\/$/, "");
   const url = `${origin}/u/${profile.username}`;
   const share = async () => {
@@ -133,6 +160,7 @@ export default function QrPage() {
   };
   return (
     <main className={`qr-shell qr-shell-theme-${getProfileTheme(profile.profile_theme)}`}>
+      {session && <EventReadyPanel profile={profile} token={session.access_token} onChange={setProfile} />}
       <QrViewer profile={profile} url={url} />
       <div className="qr-toolbox" aria-label="QR actions"><Button variant="secondary" onClick={() => void fullscreen()}><Expand size={17} /> Full screen</Button><Button variant="secondary" onClick={() => void share()}><Share2 size={17} /> Share</Button><Button variant="secondary" onClick={() => void download()}><Download size={17} /> Save</Button><Button variant="secondary" className={customising ? "qr-toolbox-open" : ""} aria-expanded={customising} aria-controls="qr-personality" onClick={() => setCustomising((open) => !open)}><Palette size={17} /> Style</Button></div>
       {customising && (

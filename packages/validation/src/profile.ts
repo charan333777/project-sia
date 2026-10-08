@@ -3,7 +3,7 @@ import { z } from "zod";
 export const profileThemes = ["calm", "warm", "bold", "play"] as const;
 export type ProfileTheme = (typeof profileThemes)[number];
 
-export const profileCharacters = ["plain", "puppy", "elephant", "panda", "play"] as const;
+export const profileCharacters = ["plain", "puppy", "elephant", "panda", "play", "explorer", "maker", "dreamer", "spark"] as const;
 export type ProfileCharacter = (typeof profileCharacters)[number];
 
 export const profileStatusStates = ["open", "around", "focused", "off"] as const;
@@ -210,6 +210,31 @@ export const profileInputSchema = z.object({
 });
 
 export const profileUpdateSchema = profileInputSchema.partial();
+
+/** A browser-only unfinished profile. It cannot be submitted as a completed profile. */
+export const profileWizardDraftSchema = z.object({
+  version: z.literal(1),
+  draft_id: z.string().uuid(),
+  step: z.number().int().min(0).max(2),
+  avatar_mode: z.enum(["photo", "character", "initial"]),
+  username_touched: z.boolean(),
+  value: profileInputSchema.extend({
+    username: z.string().max(30),
+    display_name: z.string().max(60),
+    contact_items: z.array(z.object({
+      type: z.enum(contactItemTypes),
+      label: z.string().max(40),
+      value: z.string().max(300),
+      is_public: z.boolean(),
+    })).max(maxContactItems).default([]),
+  }),
+});
+export type ProfileWizardDraft = z.infer<typeof profileWizardDraftSchema>;
+
+export const profileEventPresetSchema = profileInputSchema.pick({ current_context: true, open_to: true }).extend({
+  label: z.string().trim().min(1).max(40),
+});
+export type ProfileEventPreset = z.infer<typeof profileEventPresetSchema>;
 
 export const publicUsernameParamsSchema = z.object({ username: usernameSchema });
 

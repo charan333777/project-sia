@@ -29,12 +29,16 @@ import type {
   NearbyPlaceKind,
   NearbyReportInput,
   NearbySnapshot,
+  NearbyProfileSummary,
 } from "@sia/validation";
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useOwnedProfile } from "@/hooks/use-owned-profile";
 import { api } from "@/lib/api";
 import { Button } from "./button";
+import { getProfileCharacterOption } from "./profile-characters";
+import { NearbyIntroduction } from "./nearby-introduction";
+import { ButtonLink } from "./button";
 import { Modal } from "./modal";
 
 /** Snapshot poll cadence: responsive while something is happening, quiet when the radar is empty. */
@@ -115,17 +119,22 @@ function markerPosition(person: NearbyPerson): PositionStyle {
   };
 }
 
+function NearbyAvatar({ person }: { person: NearbyProfileSummary }) {
+  const character = getProfileCharacterOption(person.profile_character);
+  return character.imageSrc ? <img src={character.imageSrc} width="48" height="48" alt="" /> : <>{person.display_name.slice(0, 1).toUpperCase()}</>;
+}
+
 function PersonMarker({ person, onSelect }: { person: NearbyPerson; onSelect: () => void }) {
   return (
     <button className={`nearby-person nearby-person-${person.tone}`} style={markerPosition(person)} aria-label={`${person.display_name}, ${person.distance_label}`} onClick={onSelect}>
-      <span className="nearby-person-avatar">{person.display_name.slice(0, 1).toUpperCase()}<i aria-hidden="true" /></span>
+      <span className="nearby-person-avatar"><NearbyAvatar person={person} /><i aria-hidden="true" /></span>
       <span className="nearby-person-label"><strong>{person.display_name}</strong><small>{person.distance_label}</small></span>
     </button>
   );
 }
 
 export function NearbyExperience() {
-  const { profile, loading, error: profileError, session } = useOwnedProfile();
+  const { profile, loading, error: profileError, session } = useOwnedProfile({ allowSignedOut: true });
   const [snapshot, setSnapshot] = useState<NearbySnapshot>(emptySnapshot);
   const [view, setView] = useState<"radar" | "list">("radar");
   const [duration, setDuration] = useState<NearbyDuration>("60m");
@@ -375,6 +384,8 @@ export function NearbyExperience() {
     }
   };
 
+  if (!loading && !session) return <NearbyIntroduction />;
+
   if (loading || !profile || !session) {
     return <main className="nearby-shell"><div className="nearby-loading"><Radar size={24} /><span>{profileError || "Preparing Nearby…"}</span></div></main>;
   }
@@ -395,7 +406,7 @@ export function NearbyExperience() {
         {snapshot.presence.active ? (
           <div className="nearby-presence" aria-label={`${snapshot.people.length} people nearby`}>
             <div className="nearby-avatar-stack" aria-hidden="true">
-              {snapshot.people.slice(0, 3).map((person) => <span className={`nearby-stack-${person.tone}`} key={person.profile_id}>{person.display_name.slice(0, 1)}</span>)}
+              {snapshot.people.slice(0, 3).map((person) => <span className={`nearby-stack-${person.tone}`} key={person.profile_id}><NearbyAvatar person={person} /></span>)}
             </div>
             <div><strong>{snapshot.people.length} nearby</strong><span>{snapshot.people.filter((person) => person.match_count > 0).length} match your interests</span></div>
           </div>
@@ -430,7 +441,7 @@ export function NearbyExperience() {
           <div className="nearby-section-heading"><div><span><Hand size={16} /> New Wave</span><h2 id="nearby-waves-heading">Someone wants to connect</h2></div></div>
           {incoming.map((signal) => (
             <article className="nearby-wave-card" key={signal.id}>
-              <span className={`nearby-profile-avatar nearby-stack-${signal.person.tone}`}>{signal.person.display_name.slice(0, 1)}</span>
+              <span className={`nearby-profile-avatar nearby-stack-${signal.person.tone}`}><NearbyAvatar person={signal.person} /></span>
               <div><strong>{signal.person.display_name}</strong><small>{signal.person.role}</small><p>{intentLabel(signal.intent)}</p></div>
               <div className="nearby-wave-actions">
                 <button disabled={busy} onClick={() => void runSnapshotAction(() => api.respondNearbySignal(signal.id, "decline", session.access_token))}>Not now</button>
@@ -458,13 +469,13 @@ export function NearbyExperience() {
             <div className="nearby-you"><span><LocateFixed size={20} /></span><strong>You</strong></div>
             {snapshot.presence.active && snapshot.people.map((person) => <PersonMarker person={person} key={person.profile_id} onSelect={() => { setSelected(person); setShowReport(false); }} />)}
             {!snapshot.presence.active && <div className="nearby-empty"><EyeOff size={25} /><strong>You’re hidden</strong><span>Switch on Nearby to see people within 200 m.</span></div>}
-            {snapshot.presence.active && snapshot.people.length === 0 && <div className="nearby-empty nearby-empty-low"><UsersRound size={25} /><strong>No one visible yet</strong><span>We’ll update this radar automatically.</span></div>}
+            {snapshot.presence.active && snapshot.people.length === 0 && <div className="nearby-empty nearby-empty-low"><UsersRound size={25} /><strong>No one visible yet</strong><span>We’ll update this radar automatically. You can still meet by QR.</span></div>}
           </div>
         ) : (
           <div className="nearby-list-view">
             {snapshot.people.map((person) => (
               <button key={person.profile_id} className="nearby-list-person" onClick={() => { setSelected(person); setShowReport(false); }}>
-                <span className={`nearby-profile-avatar nearby-stack-${person.tone}`}>{person.display_name.slice(0, 1)}<i aria-hidden="true" /></span>
+                <span className={`nearby-profile-avatar nearby-stack-${person.tone}`}><NearbyAvatar person={person} /><i aria-hidden="true" /></span>
                 <span><strong>{person.display_name}</strong><small>{person.role || "Open to meeting"}</small></span>
                 <span><strong>{person.distance_label}</strong><small>{person.match_count ? `${person.match_count} shared interest${person.match_count === 1 ? "" : "s"}` : "Approximate"}</small></span>
               </button>
@@ -476,6 +487,8 @@ export function NearbyExperience() {
         <div className="nearby-privacy-line"><ShieldCheck size={16} /><span>Approximate by design</span><span aria-hidden="true">·</span><span>200 m</span></div>
       </section>
 
+      {snapshot.presence.active && snapshot.people.length === 0 && <div className="nearby-fallback"><p>Meeting someone already? Your QR works even when Nearby is quiet.</p><ButtonLink href="/profile/qr" variant="secondary">Show my QR</ButtonLink></div>}
+
       {snapshot.connections.length > 0 && (
         <section className="nearby-connections" aria-labelledby="nearby-connections-heading">
           <div className="nearby-section-heading"><div><span><UsersRound size={16} /> Mutual</span><h2 id="nearby-connections-heading">Ready to meet</h2></div><small>Connections close automatically after 2 hours</small></div>
@@ -486,7 +499,7 @@ export function NearbyExperience() {
               const lastStatus = meet?.statuses[0];
               return (
                 <article className="nearby-connection-card" key={connection.id}>
-                  <div className="nearby-connection-person"><span className={`nearby-profile-avatar nearby-stack-${connection.person.tone}`}>{connection.person.display_name.slice(0, 1)}</span><div><strong>{connection.person.display_name}</strong><small>{connection.person.role}</small></div><span><Check size={14} /> Connected</span></div>
+                  <div className="nearby-connection-person"><span className={`nearby-profile-avatar nearby-stack-${connection.person.tone}`}><NearbyAvatar person={connection.person} /></span><div><strong>{connection.person.display_name}</strong><small>{connection.person.role}</small></div><span><Check size={14} /> Connected</span></div>
                   {!meet && planningId !== connection.id && <div className="nearby-connect-next"><p>Suggest a public place and time. No open-ended chat needed.</p><Button onClick={() => planMeeting(connection.id)}><CalendarClock size={17} /> Plan a meet</Button></div>}
                   {planningId === connection.id && (
                     <div className="nearby-meet-builder">
@@ -539,7 +552,7 @@ export function NearbyExperience() {
         {selected && (
           <div className="nearby-profile-preview">
             <div className="nearby-profile-top">
-              <span className={`nearby-profile-avatar nearby-stack-${selected.tone}`}>{selected.display_name.slice(0, 1)}<i aria-hidden="true" /></span>
+              <span className={`nearby-profile-avatar nearby-stack-${selected.tone}`}><NearbyAvatar person={selected} /><i aria-hidden="true" /></span>
               <div><span>{selected.distance_label}</span><h2>{selected.display_name}</h2><p>{selected.role}</p></div>
             </div>
             <div className="nearby-profile-now"><Sparkles size={17} /><div><span>Right now</span><strong>{selected.current_context || "Open to a nearby hello"}</strong></div></div>

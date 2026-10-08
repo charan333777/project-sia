@@ -1,5 +1,6 @@
 import postgres, { type Sql } from "postgres";
 import type {
+  ProfileCharacter,
   NearbyDuration,
   NearbyIntent,
   NearbyMeetPlanInput,
@@ -24,6 +25,7 @@ type ProfileColumns = {
   current_context: string;
   interests: string[];
   open_to: string[];
+  profile_character: ProfileCharacter;
 };
 
 function profileFrom(row: ProfileColumns): NearbyProfileRecord {
@@ -35,6 +37,7 @@ function profileFrom(row: ProfileColumns): NearbyProfileRecord {
     currentContext: row.current_context,
     interests: row.interests,
     openTo: row.open_to,
+    profileCharacter: row.profile_character,
   };
 }
 
@@ -158,6 +161,7 @@ export class PostgresNearbyRepository implements NearbyRepository {
         p.user_id,
         p.id AS profile_id,
         p.display_name,
+        p.profile_character,
         p.role,
         p.current_context,
         p.interests,
@@ -245,6 +249,7 @@ export class PostgresNearbyRepository implements NearbyRepository {
         p.user_id,
         p.id AS profile_id,
         p.display_name,
+        p.profile_character,
         p.role,
         p.current_context,
         p.interests,
@@ -307,6 +312,7 @@ export class PostgresNearbyRepository implements NearbyRepository {
         p.user_id,
         p.id AS profile_id,
         p.display_name,
+        p.profile_character,
         p.role,
         p.current_context,
         p.interests,

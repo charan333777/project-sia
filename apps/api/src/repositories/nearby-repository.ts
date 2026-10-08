@@ -1,4 +1,5 @@
 import type {
+  ProfileCharacter,
   NearbyDuration,
   NearbyIntent,
   NearbyMeetPlanInput,
@@ -15,6 +16,7 @@ export type NearbyProfileRecord = {
   currentContext: string;
   interests: string[];
   openTo: string[];
+  profileCharacter?: ProfileCharacter;
 };
 
 export type NearbyPresenceRecord = {

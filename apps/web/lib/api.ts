@@ -52,6 +52,8 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 }
 
 export const api = {
+  checkUsername: (username: string, signal?: AbortSignal) =>
+    request<{ username: string; available: boolean }>(`/public/usernames/${encodeURIComponent(username)}`, { cache: "no-store", signal }),
   createProfile: (input: ProfileInput, token: string) =>
     request<Profile>("/profiles", { method: "POST", body: JSON.stringify(input) }, token),
   getMyProfile: (token: string) => request<Profile>("/profiles/me", {}, token),

@@ -126,6 +126,14 @@ export class ProfileService {
     return await this.present(profile);
   }
 
+  async usernameAvailability(username: string) {
+    const [taken, retired] = await Promise.all([
+      this.profiles.isUsernameTaken(username),
+      this.profiles.isUsernameRetired(username),
+    ]);
+    return { username, available: !taken && !retired };
+  }
+
   async getPublic(username: string) {
     void this.purgeDueProfiles();
     const profile = await this.profiles.findPublicByUsername(username);

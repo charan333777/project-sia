@@ -99,6 +99,12 @@ export async function buildApp(dependencies: AppDependencies) {
 
   app.get("/api/v1/health", async () => ({ data: { status: "ok" } }));
 
+  app.get("/api/v1/public/usernames/:username", { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } }, async (request, reply) => {
+    const { username } = publicUsernameParamsSchema.parse(request.params);
+    reply.header("Cache-Control", "no-store");
+    return { data: await profiles.usernameAvailability(username) };
+  });
+
   app.post("/api/v1/profiles", { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } }, async (request, reply) => {
     const user = await authenticatedUser(request.headers.authorization);
     const input = profileInputSchema.parse(request.body);

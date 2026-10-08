@@ -11,6 +11,10 @@ export const profileCharacterOptions: Array<{
   { id: "elephant", label: "Elephant", description: "Calm & thoughtful", imageSrc: "/mascots/elephant.png" },
   { id: "panda", label: "Panda", description: "Gentle & curious", imageSrc: "/mascots/panda.png" },
   { id: "play", label: "Play", description: "Bright & playful", imageSrc: "/mascots/play.png" },
+  { id: "explorer", label: "Explorer", description: "Ready for something new", imageSrc: "/mascots/explorer.svg" },
+  { id: "maker", label: "Maker", description: "Curious & creative", imageSrc: "/mascots/maker.svg" },
+  { id: "dreamer", label: "Dreamer", description: "Thoughtful & imaginative", imageSrc: "/mascots/dreamer.svg" },
+  { id: "spark", label: "Spark", description: "Up for a conversation", imageSrc: "/mascots/spark.svg" },
 ];
 
 export function getProfileCharacter(value: unknown): ProfileCharacter {

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/auth-provider";
 import { api, ApiRequestError } from "@/lib/api";
 
-export function useOwnedProfile() {
+export function useOwnedProfile({ allowSignedOut = false }: { allowSignedOut?: boolean } = {}) {
   const router = useRouter();
   const pathname = usePathname();
   const { session, loading: authLoading } = useAuth();
@@ -17,6 +17,7 @@ export function useOwnedProfile() {
   useEffect(() => {
     if (authLoading) return;
     if (!session) {
+      if (allowSignedOut) { setLoading(false); setProfile(null); return; }
       // Come back here afterwards — someone who tapped Nearby wants Nearby, not their profile.
       router.replace(`/login?next=${encodeURIComponent(pathname)}`);
       return;
@@ -38,7 +39,7 @@ export function useOwnedProfile() {
       })
       .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [authLoading, pathname, router, session]);
+  }, [authLoading, pathname, router, session, allowSignedOut]);
 
   return { profile, setProfile, loading: authLoading || loading, error, session };
 }

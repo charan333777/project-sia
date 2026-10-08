@@ -36,9 +36,9 @@ describe("pruneEmptyContactItems", () => {
   });
 
   it("routes every wizard field to the step that renders it", () => {
-    expect(fieldStep.contact_items).toBe(4);
+    expect(fieldStep.contact_items).toBe(2);
     expect(fieldStep.username).toBe(0);
     expect(fieldStep.bio).toBe(1);
-    expect(fieldStep.is_public).toBe(7);
+    expect(fieldStep.is_public).toBe(2);
   });
 });

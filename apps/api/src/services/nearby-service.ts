@@ -49,6 +49,7 @@ function profileSummary(profile: NearbyProfileRecord): NearbyProfileSummary {
     interests: profile.interests,
     open_to: profile.openTo,
     tone: toneFor(profile.profileId),
+    profile_character: profile.profileCharacter ?? "plain",
   };
 }
 

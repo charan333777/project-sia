@@ -41,6 +41,7 @@ function addPosterCharacterFrame(poster: SVGElement, characterId: ProfileCharact
     appendSvgElement(poster, "circle", { cx: "968", cy: "710", r: "46", fill: soft, opacity: ".92" });
     return;
   }
+  if (["explorer", "maker", "dreamer", "spark"].includes(characterId)) return;
   const isPuppy = characterId === "puppy";
   const fill = isPuppy ? "#D9A267" : soft;
   appendSvgElement(poster, "ellipse", { cx: "135", cy: "570", rx: isPuppy ? "92" : "118", ry: isPuppy ? "205" : "222", fill, opacity: ".94", transform: `rotate(${isPuppy ? "10" : "4"} 135 570)` });

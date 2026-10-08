@@ -21,7 +21,8 @@ export function ProfileAvatar({ profile, photoUrl }: { profile: DisplayProfile; 
   );
 }
 
-export function ProfileCard({ profile, compact = false, owner = false, photoPreviewUrl }: { profile: DisplayProfile; compact?: boolean; owner?: boolean; photoPreviewUrl?: string | null }) {
+export function ProfileCard({ profile, compact = false, owner = false, photoPreviewUrl, headingLevel = 1 }: { profile: DisplayProfile; compact?: boolean; owner?: boolean; photoPreviewUrl?: string | null; headingLevel?: 1 | 2 }) {
+  const Heading = headingLevel === 1 ? "h1" : "h2";
   const theme = getProfileTheme(profile.profile_theme);
   const photoUrl = photoPreviewUrl === undefined && "avatar_url" in profile ? profile.avatar_url : photoPreviewUrl;
   const status = "status" in profile ? profile.status : null;
@@ -34,7 +35,7 @@ export function ProfileCard({ profile, compact = false, owner = false, photoPrev
       <div className="profile-identity">
         <ProfileAvatar profile={profile} photoUrl={photoUrl} />
         <div>
-          <h1>{profile.display_name}</h1>
+          <Heading>{profile.display_name}</Heading>
           {profile.role && <p className="profile-role">{profile.role}</p>}
           <span className="profile-handle">@{profile.username}</span>
         </div>
@@ -58,6 +59,7 @@ export function ProfileCard({ profile, compact = false, owner = false, photoPrev
           <div className="tag-list">{profile.open_to.map((item) => <span className="open-tag" key={item}>{item}</span>)}</div>
         </section>
       )}
+      {profile.interests.length > 0 && <p className="conversation-prompt"><MessageCircleMore size={17} aria-hidden="true" /><span><strong>Ask me about</strong> {profile.interests.slice(0, 2).join(" or ")}</span></p>}
       {profile.interests.length > 0 && (
         <section className="profile-section" aria-labelledby="interests-heading">
           <div className="section-eyebrow"><Heart size={17} /><h2 id="interests-heading">I’m into</h2></div>
